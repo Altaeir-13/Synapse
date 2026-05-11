@@ -12,7 +12,7 @@ import { chromium, BrowserContext, Page } from 'playwright';
 import path from 'path';
 
 let context: BrowserContext | null = null;
-let activePage: Page | null = null;
+export let activePage: Page | null = null;
 let currentHeaders: Record<string, string> = {};
 
 export async function initPlaywright(headless = true) {

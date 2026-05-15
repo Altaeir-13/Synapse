@@ -23,11 +23,8 @@ export async function initPlaywright(headless = true) {
 
   const profilePath = path.resolve('deepseek_profile');
 
-  const isWindows = process.platform === 'win32';
-
-  const launchOptions = {
+  context = await chromium.launchPersistentContext(profilePath, {
     headless,
-    channel: isWindows ? 'msedge' : undefined,
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
     args: [
       '--disable-blink-features=AutomationControlled',
@@ -37,9 +34,7 @@ export async function initPlaywright(headless = true) {
       '--disable-dev-shm-usage',
       '--disable-gpu',
     ],
-  };
-
-  context = await chromium.launchPersistentContext(profilePath, launchOptions);
+  });
 
   // Keep an active page to fetch PoW headers on demand
   activePage = await context.newPage();

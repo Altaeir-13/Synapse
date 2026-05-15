@@ -88,7 +88,7 @@ export async function chatCompletions(c: Context) {
 
     const finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
 
-const isThinkingModel = !body.model.includes('no-thinking');
+    const isThinkingModel = body.model.includes('thinking');
     const isProModel = body.model.includes('pro');
 
     // A session is new if it doesn't have any assistant messages yet.
@@ -99,7 +99,7 @@ const isThinkingModel = !body.model.includes('no-thinking');
     let stream: ReadableStream;
     let uiSessionId = '';
     let retries = 3;
-while (retries > 0) {
+    while (retries > 0) {
       try {
         // If it's a new session, force parent_message_id to null
         const result = await createDeepSeekStream(finalPrompt, isThinkingModel, isProModel, isNewSession ? null : undefined);
@@ -169,7 +169,7 @@ while (retries > 0) {
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
-for (const line of lines) {
+        for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith('data: ')) continue;
           
@@ -269,13 +269,6 @@ for (const line of lines) {
                 });
               } else {
                 inThinkingState = false;
-                
-                // Detect tool call start when '<' arrives via response/content
-                if (!insideTool && currentAppendPath === 'response/content' && vStr === '<') {
-                  insideTool = true;
-                  contentEmitBuffer = '<';
-                  continue; // skip emitting, start accumulating tool call
-                }
                 
                 contentEmitBuffer += vStr;
 

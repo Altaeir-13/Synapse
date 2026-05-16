@@ -17,6 +17,7 @@ import { robustParseJSON } from '../utils/json.ts';
 
 const TOOL_START = '<tool_call>';
 const TOOL_END = '</tool_call>';
+const TOOL_OPEN_RE = /<tool_call\b[^>]*>/i;
 
 type EmitChunk = (data: any) => Promise<void>;
 
@@ -110,6 +111,106 @@ function appendToolInstructions(systemPrompt: string, body: OpenAIRequest): stri
   return systemPrompt;
 }
 
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+function coerceParameterValue(rawValue: string): unknown {
+  const value = decodeXmlEntities(rawValue.trim());
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (value === 'null') return null;
+  if (/^-?\d+(?:\.\d+)?$/.test(value)) return Number(value);
+  if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
+    try { return JSON.parse(value); } catch {}
+  }
+  return value;
+}
+
+function extractToolName(openTag: string, block: string): string {
+  const combined = `${openTag}\n${block}`;
+  const attrMatch = combined.match(/<tool_call\b[^>]*\bname\s*=\s*["']([^"']+)["']/i);
+  if (attrMatch) return attrMatch[1];
+
+  const nameTagMatch = block.match(/<name>([\s\S]*?)<\/name>/i);
+  if (nameTagMatch) return decodeXmlEntities(nameTagMatch[1].trim());
+
+  return '';
+}
+
+function inferToolNameFromParameters(args: Record<string, unknown>, tools: any[]): string {
+  const argKeys = Object.keys(args);
+  if (argKeys.length === 0 || !Array.isArray(tools)) return '';
+
+  const matches = tools.filter((tool: any) => {
+    const fn = tool?.type === 'function' ? tool.function : tool?.function;
+    const properties = fn?.parameters?.properties || {};
+    return argKeys.every(k => Object.prototype.hasOwnProperty.call(properties, k));
+  });
+
+  if (matches.length === 1) {
+    const fn = matches[0]?.type === 'function' ? matches[0].function : matches[0]?.function;
+    return fn?.name || '';
+  }
+
+  return '';
+}
+
+function parseXmlParameterToolCall(block: string, openTag: string, tools: any[]): any | null {
+  const args: Record<string, unknown> = {};
+  const parameterRe = /<parameter\b[^>]*\bname\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/parameter>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = parameterRe.exec(block)) !== null) {
+    args[match[1]] = coerceParameterValue(match[2]);
+  }
+
+  if (Object.keys(args).length === 0) return null;
+
+  const toolName = extractToolName(openTag, block) || inferToolNameFromParameters(args, tools);
+  if (!toolName) return null;
+
+  return { name: toolName, arguments: args };
+}
+
+function parseToolCallBlock(block: string, openTag: string, tools: any[]): any {
+  const parsedXml = parseXmlParameterToolCall(block, openTag, tools);
+  if (parsedXml) return parsedXml;
+
+  const parsedJson = robustParseJSON(block);
+  if (!parsedJson) throw new Error('Empty tool call');
+
+  const attrToolName = extractToolName(openTag, block);
+  if (attrToolName && !parsedJson.name) parsedJson.name = attrToolName;
+
+  return parsedJson;
+}
+
+function findToolOpen(buffer: string): { startIdx: number; endIdx: number; openTag: string } | null {
+  const match = buffer.match(TOOL_OPEN_RE);
+  if (!match || match.index === undefined) return null;
+  return {
+    startIdx: match.index,
+    endIdx: match.index + match[0].length,
+    openTag: match[0]
+  };
+}
+
+function findPartialToolOpenIndex(buffer: string): number {
+  const lower = buffer.toLowerCase();
+  const idx = lower.lastIndexOf('<tool_call');
+  if (idx !== -1 && lower.indexOf('>', idx) === -1) return idx;
+
+  for (let i = 1; i < TOOL_START.length; i++) {
+    if (lower.endsWith(TOOL_START.substring(0, i))) return buffer.length - i;
+  }
+  return -1;
+}
+
 function makeChoice(delta: any, finishReason: string | null = null) {
   return {
     index: 0,
@@ -137,6 +238,7 @@ async function parseDeepSeekStreamToOpenAI(
   model: string,
   promptTokens: number,
   uiSessionId: string,
+  tools: any[] = [],
   emit?: EmitChunk
 ): Promise<ParsedCompletion> {
   const reader = deepSeekStream.getReader();
@@ -148,6 +250,7 @@ async function parseDeepSeekStreamToOpenAI(
   let content = '';
   let contentEmitBuffer = '';
   let insideTool = false;
+  let currentToolOpenTag = TOOL_START;
   let emittedToolCallCount = 0;
   let completionTokens = 0;
   const toolCalls: ToolCall[] = [];
@@ -249,22 +352,19 @@ async function parseDeepSeekStreamToOpenAI(
 
         while (contentEmitBuffer.length > 0) {
           if (!insideTool) {
-            const startIdx = contentEmitBuffer.indexOf(TOOL_START);
-            if (startIdx !== -1) {
-              const textToEmit = contentEmitBuffer.substring(0, startIdx);
-              await emitContent(textToEmit);
+            const toolOpen = findToolOpen(contentEmitBuffer);
+            if (toolOpen) {
+              // Once a tool call appears, do not emit the lead-in text as
+              // assistant content. OpenAI-compatible clients expect the whole
+              // assistant turn to be a structured tool_calls message.
               insideTool = true;
-              contentEmitBuffer = contentEmitBuffer.substring(startIdx + TOOL_START.length);
+              currentToolOpenTag = toolOpen.openTag;
+              contentEmitBuffer = contentEmitBuffer.substring(toolOpen.endIdx);
               continue;
             }
 
-            let flushIndex = contentEmitBuffer.length;
-            for (let i = 1; i <= TOOL_START.length; i++) {
-              if (contentEmitBuffer.endsWith(TOOL_START.substring(0, i))) {
-                flushIndex = contentEmitBuffer.length - i;
-                break;
-              }
-            }
+            const partialStartIdx = findPartialToolOpenIndex(contentEmitBuffer);
+            const flushIndex = partialStartIdx === -1 ? contentEmitBuffer.length : partialStartIdx;
 
             const textToEmit = contentEmitBuffer.substring(0, flushIndex);
             await emitContent(textToEmit);
@@ -272,16 +372,14 @@ async function parseDeepSeekStreamToOpenAI(
             break;
           }
 
-          const endIdx = contentEmitBuffer.indexOf(TOOL_END);
+          const lowerBuffer = contentEmitBuffer.toLowerCase();
+          const endIdx = lowerBuffer.indexOf(TOOL_END);
           if (endIdx === -1) break;
 
-          const toolJsonStr = contentEmitBuffer.substring(0, endIdx).trim();
+          const toolBlock = contentEmitBuffer.substring(0, endIdx).trim();
           try {
-            const toolCallObj = robustParseJSON(toolJsonStr);
-            if (!toolCallObj) throw new Error('Empty tool call');
-
-            const nameMatch = toolJsonStr.match(/<tool_call\s+name="([^"]+)"/);
-            const toolName = nameMatch ? nameMatch[1] : toolCallObj.name || '';
+            const toolCallObj = parseToolCallBlock(toolBlock, currentToolOpenTag, tools);
+            const toolName = toolCallObj.name || '';
 
             let toolArgs: Record<string, unknown> = {};
             if (toolCallObj.arguments && typeof toolCallObj.arguments === 'object') {
@@ -290,6 +388,8 @@ async function parseDeepSeekStreamToOpenAI(
               const keys = Object.keys(toolCallObj).filter(k => k !== 'name');
               for (const k of keys) toolArgs[k] = toolCallObj[k];
             }
+
+            if (!toolName) throw new Error('Tool call missing name');
 
             const toolId = 'call_' + uuidv4();
             const toolCall: ToolCall = {
@@ -302,10 +402,13 @@ async function parseDeepSeekStreamToOpenAI(
             if (emit) await emit(makeChunk(completionId, model, { tool_calls: [toolCall] }));
             emittedToolCallCount++;
           } catch (e) {
-            await emitContent(TOOL_START + toolJsonStr + TOOL_END);
+            // Never leak internal tool-call XML to the user-visible content.
+            // If the call cannot be parsed, dropping it is safer than exposing
+            // raw execution markup as assistant text.
           }
 
           insideTool = false;
+          currentToolOpenTag = TOOL_START;
           contentEmitBuffer = contentEmitBuffer.substring(endIdx + TOOL_END.length);
         }
       } catch (e) {
@@ -377,7 +480,8 @@ export async function chatCompletions(c: Context) {
         completionId,
         body.model,
         promptTokens,
-        uiSessionId
+        uiSessionId,
+        (body as any).tools || []
       );
 
       const message: any = {
@@ -419,6 +523,7 @@ export async function chatCompletions(c: Context) {
         body.model,
         promptTokens,
         uiSessionId,
+        (body as any).tools || [],
         writeEvent
       );
 

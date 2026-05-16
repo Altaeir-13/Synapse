@@ -267,3 +267,88 @@ test('non-stream chat completion returns OpenAI JSON instead of SSE', async () =
     restore();
   }
 });
+
+
+test('hermes-style XML tool calls are converted to structured OpenAI tool_calls', async () => {
+  const restore = setupFetchMock((url) => {
+    const stream = new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"p":"response/content","v":"Vou executar diretamente.\\n<tool_call><parameter name=\\"command\\">powershell.exe -Command Start-Process MuMuPlayer.exe</parameter><parameter name=\\"timeout\\">30</parameter></tool_call>"}\n\n'));
+        c.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+        c.close();
+      }
+    });
+    return new Response(stream, { status: 200 });
+  });
+
+  try {
+    const req = new Request('http://localhost/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'deepseek-v4-flash',
+        messages: [{ role: 'user', content: 'Abra o emulador MuMu' }],
+        stream: false,
+        tools: [{
+          type: 'function',
+          function: {
+            name: 'terminal',
+            description: 'Execute shell commands',
+            parameters: {
+              type: 'object',
+              properties: { command: { type: 'string' }, timeout: { type: 'number' } },
+              required: ['command']
+            }
+          }
+        }]
+      })
+    });
+
+    const res = await app.fetch(req);
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.choices[0].message.content, null);
+    assert.strictEqual(body.choices[0].finish_reason, 'tool_calls');
+    assert.strictEqual(body.choices[0].message.tool_calls[0].function.name, 'terminal');
+    const args = JSON.parse(body.choices[0].message.tool_calls[0].function.arguments);
+    assert.match(args.command, /MuMuPlayer\.exe/);
+    assert.strictEqual(args.timeout, 30);
+  } finally {
+    restore();
+  }
+});
+
+test('streaming Hermes-style XML tool calls do not leak as content', async () => {
+  const restore = setupFetchMock((url) => {
+    const stream = new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"p":"response/content","v":"<tool_call name=\\"terminal\\"><parameter name=\\"command\\">adb devices</parameter></tool_call>"}\n\n'));
+        c.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+        c.close();
+      }
+    });
+    return new Response(stream, { status: 200 });
+  });
+
+  try {
+    const req = new Request('http://localhost/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'deepseek-v4-flash',
+        messages: [{ role: 'user', content: 'liste adb' }],
+        stream: true,
+        tools: [{ type: 'function', function: { name: 'terminal', parameters: { type: 'object', properties: { command: { type: 'string' } } } } }]
+      })
+    });
+
+    const res = await app.fetch(req);
+    const text = await res.text();
+    assert.ok(!text.includes('<tool_call'), 'tool XML must not leak into SSE content');
+    assert.ok(!text.includes('<parameter'), 'parameter XML must not leak into SSE content');
+    assert.ok(text.includes('"tool_calls"'), 'SSE must expose structured tool_calls');
+    assert.ok(text.includes('"finish_reason":"tool_calls"'));
+  } finally {
+    restore();
+  }
+});

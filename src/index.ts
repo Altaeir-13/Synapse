@@ -14,14 +14,14 @@ import { cors } from 'hono/cors';
 import { chatCompletions } from './routes/chat.ts';
 import * as dotenv from 'dotenv';
 import { initPlaywright } from './services/playwright.ts';
+import { getContextLength } from './services/telemetry.ts';
 
 dotenv.config();
 
 export const app = new Hono();
 
-const MODEL_CONTEXT_LENGTH = 64_000;
-
 function modelEntry(id: string) {
+  const dynamicLimit = getContextLength(id);
   return {
     id,
     object: 'model',
@@ -30,9 +30,9 @@ function modelEntry(id: string) {
     permission: [],
     root: id,
     parent: null,
-    context_length: MODEL_CONTEXT_LENGTH,
-    max_context_tokens: MODEL_CONTEXT_LENGTH,
-    max_input_tokens: MODEL_CONTEXT_LENGTH,
+    context_length: dynamicLimit,
+    max_context_tokens: dynamicLimit,
+    max_input_tokens: dynamicLimit,
     max_output_tokens: 8_000,
   };
 }

@@ -26,6 +26,7 @@ test('multiturn-thinking-tools: serializes complete OpenAI message history', asy
     capturedPrompt = bodyObj.prompt;
     const stream = new ReadableStream({
       start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"p":"response/content","v":"hello"}\n\n'));
         c.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
         c.close();
       }
@@ -175,6 +176,7 @@ test('openai-requests-are-stateless: each request starts a fresh DeepSeek turn',
     const stream = new ReadableStream({
       start(c) {
         c.enqueue(new TextEncoder().encode(`data: {"v":{"response":{"message_id":${mockMessageId}}}}\n\n`));
+        c.enqueue(new TextEncoder().encode('data: {"p":"response/content","v":"hello"}\n\n'));
         c.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
         c.close();
       }
@@ -420,6 +422,104 @@ test('malformed internal tool call with lead-in returns safe content instead of 
     assert.ok(!text.includes('"tool_calls"'), 'unparseable tool call must not be exposed as a fake structured tool call');
     assert.ok(text.includes('Não encontrei o dispositivo'), 'lead-in content must be preserved as a non-empty fallback');
     assert.ok(text.includes('"finish_reason":"stop"'));
+  } finally {
+    restore();
+  }
+});
+
+import { compressMessages } from './utils/compression.ts';
+
+test('compression: compressMessages trims older conversational history', async () => {
+  const serializeFn = (msgs: any[]) => {
+    let prompt = '';
+    let systemPrompt = '';
+    for (const msg of msgs) {
+      if (msg.role === 'system') {
+        systemPrompt += msg.content + '\n';
+      } else {
+        prompt += `${msg.role}: ${msg.content}\n`;
+      }
+    }
+    return { prompt, systemPrompt };
+  };
+
+  const messages = [
+    { role: 'system', content: 'System instruction here' },
+    { role: 'user', content: 'Message 1' },
+    { role: 'assistant', content: 'Message 2' },
+    { role: 'user', content: 'Message 3' },
+    { role: 'assistant', content: 'Message 4' },
+    { role: 'user', content: 'Message 5' },
+  ];
+
+  const targetLimit = 100;
+  const compressed = compressMessages(messages, targetLimit, serializeFn);
+  
+  const systemMsg = compressed.find(m => m.role === 'system');
+  assert.ok(systemMsg);
+  assert.strictEqual(systemMsg.content, 'System instruction here');
+  
+  const lastMsg = compressed[compressed.length - 1];
+  assert.strictEqual(lastMsg.role, 'user');
+  assert.strictEqual(lastMsg.content, 'Message 5');
+
+  assert.ok(compressed.length < messages.length);
+});
+
+test('telemetry and retry: reduces context limit on empty/error response and retries with compressed context', async () => {
+  let attempts: number[] = [];
+  const restore = setupFetchMock((url, init) => {
+    const bodyObj = JSON.parse(init?.body as string || '{}');
+    attempts.push(bodyObj.prompt.length);
+    
+    if (bodyObj.prompt.length > 200) {
+      const stream = new ReadableStream({
+        start(c) {
+          c.close();
+        }
+      });
+      return new Response(stream, { status: 200 });
+    }
+    
+    const stream = new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"p":"response/content","v":"compressed success"}\n\n'));
+        c.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+        c.close();
+      }
+    });
+    return new Response(stream, { status: 200 });
+  });
+
+  try {
+    const req = new Request('http://localhost/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'deepseek-v4-flash-thinking',
+        messages: [
+          { role: 'system', content: 'Keep this instruction.' },
+          { role: 'user', content: 'A'.repeat(300) },
+        ],
+        stream: false
+      })
+    });
+    
+    const { getModelTelemetry } = await import('./services/telemetry.ts');
+    const stats = getModelTelemetry('deepseek-v4-flash-thinking');
+    stats.detectedLimit = 400;
+    
+    const res = await app.fetch(req);
+    assert.strictEqual(res.status, 200);
+    
+    const body = await res.json();
+    assert.strictEqual(body.choices[0].message.content, 'compressed success');
+    
+    assert.ok(attempts.length >= 2, 'Should have retried');
+    assert.ok(attempts[1] < attempts[0], 'Second attempt prompt should be shorter due to compression');
+    
+    assert.ok(stats.minFailureSize < Infinity, 'Should have recorded a failure');
+    assert.ok(stats.detectedLimit < 400, 'Detected limit should be reduced');
   } finally {
     restore();
   }

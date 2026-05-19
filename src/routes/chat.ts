@@ -14,6 +14,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { createDeepSeekStream, updateSessionParent } from '../services/deepseek.ts';
 import { OpenAIRequest, ChoiceDelta, Message, ToolCall, Usage } from '../utils/types.ts';
 import { robustParseJSON } from '../utils/json.ts';
+import { getModelTelemetry, recordSuccess, recordFailure } from '../services/telemetry.ts';
+import { compressMessages } from '../utils/compression.ts';
 
 const TOOL_START = '<tool_call>';
 const TOOL_END = '</tool_call>';
@@ -488,59 +490,116 @@ async function parseDeepSeekStreamToOpenAI(
   };
 }
 
+async function peekStream(stream: ReadableStream): Promise<{ isEmpty: boolean; peekedStream: ReadableStream }> {
+  const reader = stream.getReader();
+  try {
+    const { done, value } = await reader.read();
+    if (done) {
+      return { isEmpty: true, peekedStream: new ReadableStream({ start(c) { c.close(); } }) };
+    }
+    
+    const peekedStream = new ReadableStream({
+      async start(controller) {
+        controller.enqueue(value);
+        try {
+          while (true) {
+            const { done: nextDone, value: nextValue } = await reader.read();
+            if (nextDone) {
+              controller.close();
+              break;
+            }
+            controller.enqueue(nextValue);
+          }
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+      cancel() {
+        reader.releaseLock();
+      }
+    });
+    
+    return { isEmpty: false, peekedStream };
+  } catch (err) {
+    reader.releaseLock();
+    throw err;
+  }
+}
+
 export async function chatCompletions(c: Context) {
   try {
     const body: OpenAIRequest = await c.req.json();
     const isStream = body.stream ?? false;
     const messages = body.messages || [];
 
-    const serialized = serializeOpenAIMessages(messages);
-    const systemPrompt = appendToolInstructions(serialized.systemPrompt, body);
-    const finalPrompt = systemPrompt ? `${systemPrompt}\n${serialized.prompt}` : serialized.prompt;
-
     const isThinkingModel = body.model.includes('thinking');
     const isProModel = body.model.includes('pro');
-    const isNewSession = !messages.some(m => m.role === 'assistant');
-
-    let deepSeekStream: ReadableStream;
-    let uiSessionId = '';
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        // OpenAI chat/completions requests are self-contained: the caller sends
-        // the full message history every time. Always start a fresh DeepSeek
-        // browser turn so DeepSeek's stateful parent_message_id cannot drift
-        // from compressed/edited OpenAI histories and produce empty replies.
-        const result = await createDeepSeekStream(finalPrompt, isThinkingModel, isProModel, null);
-        deepSeekStream = result.stream;
-        uiSessionId = result.uiSessionId;
-        break;
-      } catch (err: any) {
-        retries--;
-        if (retries === 0) throw err;
-        await new Promise(r => setTimeout(r, 1000));
-      }
-    }
-
     const completionId = 'chatcmpl-' + uuidv4();
-    const promptTokens = Math.ceil(finalPrompt.length / 3.5);
 
     if (!isStream) {
-      const parsed = await parseDeepSeekStreamToOpenAI(
-        deepSeekStream!,
-        completionId,
-        body.model,
-        promptTokens,
-        uiSessionId,
-        (body as any).tools || []
-      );
+      let attempt = 0;
+      const maxAttempts = 3;
+      let lastError: any = null;
+      let parsedResult: ParsedCompletion | null = null;
+      let finalUiSessionId = '';
+
+      while (attempt < maxAttempts) {
+        attempt++;
+        const telemetry = getModelTelemetry(body.model);
+        const currentTargetLimit = telemetry.detectedLimit;
+        
+        const compressed = compressMessages(messages, currentTargetLimit, serializeOpenAIMessages);
+        const serialized = serializeOpenAIMessages(compressed);
+        const systemPrompt = appendToolInstructions(serialized.systemPrompt, body);
+        const finalPrompt = systemPrompt ? `${systemPrompt}\n${serialized.prompt}` : serialized.prompt;
+        const promptSize = finalPrompt.length;
+        const promptTokens = Math.ceil(promptSize / 3.5);
+
+        try {
+          console.log(`[Chat] Attempt ${attempt}/${maxAttempts} (non-stream) with prompt length ${promptSize} chars.`);
+          const result = await createDeepSeekStream(finalPrompt, isThinkingModel, isProModel, null);
+          
+          const parsed = await parseDeepSeekStreamToOpenAI(
+            result.stream,
+            completionId,
+            body.model,
+            promptTokens,
+            result.uiSessionId,
+            (body as any).tools || []
+          );
+
+          if (parsed.content === '' && parsed.toolCalls.length === 0) {
+            console.warn(`[Chat] Attempt ${attempt} (non-stream) response was empty.`);
+            recordFailure(body.model, promptSize);
+            continue;
+          }
+
+          // Success!
+          recordSuccess(body.model, promptSize);
+          parsedResult = parsed;
+          finalUiSessionId = result.uiSessionId;
+          break;
+        } catch (err: any) {
+          console.error(`[Chat] Attempt ${attempt} (non-stream) failed:`, err.message);
+          lastError = err;
+          recordFailure(body.model, promptSize);
+          if (attempt >= maxAttempts) {
+            break;
+          }
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
+      if (!parsedResult) {
+        throw lastError || new Error("Failed to get a non-empty response from DeepSeek after multiple attempts.");
+      }
 
       const message: any = {
         role: 'assistant',
-        content: parsed.toolCalls.length > 0 ? null : parsed.content
+        content: parsedResult.toolCalls.length > 0 ? null : parsedResult.content
       };
-      if (parsed.reasoningContent) message.reasoning_content = parsed.reasoningContent;
-      if (parsed.toolCalls.length > 0) message.tool_calls = parsed.toolCalls;
+      if (parsedResult.reasoningContent) message.reasoning_content = parsedResult.reasoningContent;
+      if (parsedResult.toolCalls.length > 0) message.tool_calls = parsedResult.toolCalls;
 
       return c.json({
         id: completionId,
@@ -551,15 +610,68 @@ export async function chatCompletions(c: Context) {
           index: 0,
           message,
           logprobs: null,
-          finish_reason: parsed.finishReason
+          finish_reason: parsedResult.finishReason
         }],
-        usage: parsed.usage
+        usage: parsedResult.usage
       });
+    }
+
+    // Streaming mode
+    let deepSeekStream: ReadableStream | null = null;
+    let uiSessionId = '';
+    let attempt = 0;
+    const maxAttempts = 3;
+    let lastError: any = null;
+    let promptSizeUsed = 0;
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      const telemetry = getModelTelemetry(body.model);
+      const currentTargetLimit = telemetry.detectedLimit;
+      
+      const compressed = compressMessages(messages, currentTargetLimit, serializeOpenAIMessages);
+      const serialized = serializeOpenAIMessages(compressed);
+      const systemPrompt = appendToolInstructions(serialized.systemPrompt, body);
+      const finalPrompt = systemPrompt ? `${systemPrompt}\n${serialized.prompt}` : serialized.prompt;
+      promptSizeUsed = finalPrompt.length;
+
+      try {
+        console.log(`[Chat] Attempt ${attempt}/${maxAttempts} (stream) with prompt length ${promptSizeUsed} chars.`);
+        const result = await createDeepSeekStream(finalPrompt, isThinkingModel, isProModel, null);
+        
+        // Peek the stream to verify it has content
+        const { isEmpty, peekedStream } = await peekStream(result.stream);
+        if (isEmpty) {
+          console.warn(`[Chat] Attempt ${attempt} (stream) peeked stream was empty.`);
+          recordFailure(body.model, promptSizeUsed);
+          continue;
+        }
+
+        // Success!
+        recordSuccess(body.model, promptSizeUsed);
+        deepSeekStream = peekedStream;
+        uiSessionId = result.uiSessionId;
+        break;
+      } catch (err: any) {
+        console.error(`[Chat] Attempt ${attempt} (stream) failed:`, err.message);
+        lastError = err;
+        recordFailure(body.model, promptSizeUsed);
+        if (attempt >= maxAttempts) {
+          break;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
+    if (!deepSeekStream) {
+      throw lastError || new Error("Failed to get a valid stream from DeepSeek after multiple attempts.");
     }
 
     c.header('Content-Type', 'text/event-stream');
     c.header('Cache-Control', 'no-cache');
     c.header('Connection', 'keep-alive');
+
+    const promptTokens = Math.ceil(promptSizeUsed / 3.5);
 
     return honoStream(c, async (streamWriter: any) => {
       const writeEvent = async (data: any) => {

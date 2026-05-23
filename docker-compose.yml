@@ -5,8 +5,15 @@ services:
     ports:
       - "3000:3000"
     environment:
+      - HOST=0.0.0.0
       - PORT=3000
       - API_KEY=sua_api_key_aqui
+      - PLAYWRIGHT_HEADLESS=true
     volumes:
       - ./deepseek_profile:/app/deepseek_profile
+      - ./kimi_profile:/app/kimi_profile
+      - ./glm_profile:/app/glm_profile
+      - ./mimo_profile:/app/mimo_profile
+    cap_add:
+      - SYS_ADMIN
     restart: unless-stopped

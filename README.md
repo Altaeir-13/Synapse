@@ -42,17 +42,30 @@ Esta versão transformou a ferramenta focada em DeepSeek em um gateway multi-pro
 ```mermaid
 graph TD
     Client[Cliente OpenAI/SDK] -->|HTTPS| Proxy[DeepsProxy]
-    Proxy -->|/v1/chat/completions| Handler[Chat Handler]
-    Handler --> DeepSeek[DeepSeek API]
-    Handler --> Playwright[Playwright Service]
-    Playwright --> Browser[Navegador Headless]
-    Handler --> Tools[Tools Executor]
-    Tools --> Registry[Tool Registry]
+    Proxy -->|Router /v1/chat| Engine[Core Engine]
     
-    subgraph "Configuração"
-        Env[.env] --> Proxy
-        Profile[deepseek_profile/] --> Playwright
+    subgraph "Vault (Segurança AES-256-GCM)"
+        Password[Senha Mestra] --> VaultCore[Descriptografia em Memória]
+        EnvEnc[.env.enc] --> VaultCore
+        ProfEnc[*_profile.enc] --> VaultCore
+        VaultCore -.->|Extrai perfis para RAM| Playwright[Playwright Service]
+        VaultCore -.->|Injeta variáveis| Engine
     end
+    
+    Engine -->|Seleciona dinamicamente| Providers
+    
+    subgraph "Providers LLM (Integrações)"
+        Providers --> DS[DeepSeek]
+        Providers --> Kimi[Kimi / Moonshot]
+        Providers --> GLM[Zhipu GLM]
+        Providers --> MiMo[Xiaomi MiMo]
+        Providers --> HF[HuggingFace]
+    end
+
+    Providers --> Playwright
+    Playwright -->|Coleta Headers/Cookies via CDP| Browser[Headless Chromium]
+    Browser -.->|Retorna Auth Headers| Providers
+    Providers -->|Node Fetch (Seguro/Isolado)| APIExterna[APIs de IA (Web)]
 ```
 
 ---

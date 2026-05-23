@@ -19,16 +19,20 @@ export async function initPlaywright(providerId: string, headless = true) {
 
   const password = (globalThis as any)._vaultPassword;
   const encryptedProfile = path.resolve(`${providerId}_profile.enc`);
-  const tempDir = path.join(os.tmpdir(), `deepsproxy_profile_${uuidv4()}`);
-  const profilePath = path.join(tempDir, `${providerId}_profile`);
+  const localProfile = path.resolve(`${providerId}_profile`);
   
+  let profilePath: string;
+
   if (fs.existsSync(encryptedProfile)) {
     if (!password) throw new Error(`Vault password required to decrypt ${providerId}_profile.enc`);
+    const tempDir = path.join(os.tmpdir(), `deepsproxy_profile_${uuidv4()}`);
     console.log(`[Vault] Decrypting ${providerId} profile to temporary secure memory...`);
     await decryptAndUnpackDir(encryptedProfile, tempDir, password);
+    profilePath = path.join(tempDir, `${providerId}_profile`);
+    activeTempDirs[providerId] = tempDir;
+  } else {
+    profilePath = localProfile;
   }
-  activeTempDirs[providerId] = tempDir;
-
 
   const context = await chromium.launchPersistentContext(profilePath, {
     headless,

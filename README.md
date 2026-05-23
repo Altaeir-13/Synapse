@@ -107,6 +107,9 @@ PORT=3000
 # Chave de API para proteger endpoints (opcional)
 API_KEY=sua-chave-secreta-aqui
 
+# Provedores Ativos (ex: deepseek, kimi, glm, mimo, huggingface)
+ACTIVE_PROVIDERS=deepseek,kimi
+
 # Configurações Playwright
 PLAYWRIGHT_HEADLESS=true
 PLAYWRIGHT_TIMEOUT=30000
@@ -114,6 +117,9 @@ PLAYWRIGHT_TIMEOUT=30000
 # Logging
 LOG_LEVEL=info
 ```
+
+> [!CAUTION]
+> **Vault de Segurança**: Após criar o arquivo `.env` e efetuar os logins (`npm run login`), você deve executar `npm run setup-vault` para criptografar seu `.env` e suas sessões do navegador em arquivos `.enc`. Isso protege suas chaves e cookies contra malwares e acessos não autorizados. Após rodar o setup, o `.env` em texto plano será excluído e você precisará digitar sua senha mestra sempre que iniciar o servidor.
 
 ### Variáveis de Ambiente
 
@@ -322,9 +328,9 @@ print(response.choices[0].message.content)
 
 | Comando | Descrição |
 |---------|-----------|
-| `npm start` | Inicia o servidor em produção |
-| `npm run dev` | Inicia com hot-reload para desenvolvimento |
-| `npm run login` | Executa fluxo de login e salva sessão do navegador |
+| `npm start` | Inicia o servidor e solicita a Senha Mestra do Vault |
+| `npm run setup-vault` | Criptografa o `.env` e pastas `*_profile/` para proteger dados contra malwares |
+| `npm run login:<provider>` | Executa fluxo de login (`ds`, `kimi`, `glm`, `mimo`, `hf`) |
 | `npm test` | Executa suite de testes |
 | `npm run build` | Compila TypeScript para `dist/` |
 | `npx playwright install` | Instala browsers para automação |
@@ -336,33 +342,21 @@ print(response.choices[0].message.content)
 ```
 deepsproxy/
 ├── src/
-│   ├── index.ts              # Entry point: servidor Hono + middleware
-│   ├── routes/
-│   │   └── chat.ts          # Handler POST /v1/chat/completions
-│   ├── services/
-│   │   ├── deepseek.ts      # Cliente API DeepSeek
-│   │   └── playwright.ts    # Gerenciamento de browser/session
-│   ├── tools/
-│   │   ├── executor.ts      # Execução dinâmica de ferramentas
-│   │   ├── registry.ts      # Registro e descoberta de tools
-│   │   ├── schema.ts        # Validação de schemas JSON
-│   │   └── types.ts         # Tipos do sistema de tools
-│   ├── runtime/
-│   │   ├── engine.ts        # Motor principal de execução
-│   │   └── types.ts         # Tipos do runtime
-│   ├── types/
-│   │   └── openai.ts        # Tipos compatíveis com OpenAI API
-│   ├── utils/
-│   │   └── types.ts         # Utilitários de tipo
-│   ├── login.ts             # Script de autenticação inicial
-│   ├── index.test.ts        # Testes unitários básicos
-│   └── advanced.test.ts     # Testes de integração avançados
-├── docker-compose.yml        # Orquestração multi-container
-├── Dockerfile                # Imagem Docker otimizada
-├── tsconfig.json            # Configuração TypeScript strict
+│   ├── __tests__/           # Testes automatizados
+│   ├── api/                 # Rotas Web (Hono)
+│   ├── core/                # Motor principal e Vault (Segurança AES-256)
+│   ├── providers/           # Integrações LLM (DeepSeek, Kimi, GLM, etc.)
+│   ├── scripts/             # Scripts utilitários (Login, Setup Vault)
+│   ├── shared/              # Schemas e lógicas compartilhadas
+│   ├── tools/               # Registro e Parse de Tool Calls
+│   ├── app.ts               # Configuração global da API
+│   └── index.ts             # Boot do servidor
+├── docker-compose.yml       # Orquestração multi-container
+├── Dockerfile               # Imagem Docker otimizada
+├── tsconfig.json            # Configuração TypeScript
 ├── package.json             # Dependências e scripts
-├── .env.example             # Template de variáveis de ambiente
-└── deepseek_profile/        # Armazenamento de sessão (gitignored)
+├── .env.enc                 # Cofre de Ambiente Criptografado (Vault)
+└── *_profile.enc            # Sessões de Navegador Criptografadas (Vault)
 ```
 
 ---

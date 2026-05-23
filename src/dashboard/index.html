@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepsProxy - Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #000000;
+      --text-light: #ececf1;
+      --text-white: #ffffff;
+      --accent-green: #00cc00;
+      --accent-pink: #ff0080;
+      --hover-color: #f92672;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Courier Prime', 'Courier New', monospace;
+      background-color: var(--bg-color);
+      color: var(--text-light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .header {
+      width: 100%;
+      max-width: 1200px;
+      padding: 24px 16px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 64px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--accent-green);
+      margin-bottom: 12px;
+    }
+
+    .header p {
+      font-size: 16px;
+      color: var(--text-light);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background-color: var(--bg-color);
+      color: var(--text-light);
+      border: 1px solid rgba(0, 204, 0, 0.3);
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0px 1px 2px rgba(0,204,0,0.1);
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-title {
+      font-size: 32px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--accent-green);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .button-primary {
+      background-color: transparent;
+      color: var(--accent-green);
+      border: 1px solid var(--accent-green);
+      border-radius: 6px;
+      padding: 8px 16px; /* slightly increased from 0px 12px for usability, but maintains rules */
+      font-weight: 600;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      z-index: 2;
+    }
+
+    .button-primary:hover {
+      opacity: 0.9;
+      box-shadow: 0px 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .button-primary:disabled {
+      cursor: default;
+      opacity: 0.5;
+    }
+
+    .button-alert {
+      background-color: transparent;
+      color: var(--accent-pink);
+      border: 1px solid var(--accent-pink);
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-weight: 600;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.3s ease-in-out;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button-alert:hover {
+      opacity: 0.9;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .provider-card {
+      background-color: var(--bg-color);
+      border: 1px dashed rgba(0, 204, 0, 0.4);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .provider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .provider-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-light);
+    }
+
+    .badge-success {
+      background-color: var(--accent-green);
+      color: var(--text-white);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .badge-alert {
+      background-color: var(--accent-pink);
+      color: var(--text-white);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .badge-neutral {
+      background-color: #333;
+      color: var(--text-light);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .input-text {
+      background-color: var(--bg-color);
+      color: var(--text-light);
+      border: 1px solid var(--accent-green);
+      border-radius: 4px;
+      padding: 8px;
+      font-size: 16px;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    .input-text:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0,204,0,0.5);
+    }
+
+    .setup-code {
+      background-color: rgba(0, 204, 0, 0.05);
+      border: 1px solid var(--accent-green);
+      padding: 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: var(--accent-green);
+      overflow-x: auto;
+      margin-top: 16px;
+    }
+
+    .setup-code span {
+      color: var(--text-light);
+    }
+
+    .vault-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      z-index: 1000;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background-color: var(--bg-color);
+      border: 1px solid var(--accent-green);
+      border-radius: 8px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0px 1px 2px rgba(0,0,0,0.15);
+      transform: translateY(20px);
+      transition: transform 0.3s;
+      z-index: 3;
+    }
+
+    .modal-overlay.active .modal {
+      transform: translateY(0);
+    }
+
+    .form-group {
+      margin-top: 16px;
+      margin-bottom: 24px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: var(--accent-green);
+    }
+
+    .link {
+      color: var(--accent-green);
+      text-decoration: none;
+    }
+
+    .link:hover {
+      color: var(--hover-color);
+    }
+
+    /* Loader */
+    .loader {
+      border: 2px solid transparent;
+      border-top: 2px solid var(--accent-green);
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      animation: spin 1s linear infinite;
+      display: none;
+    }
+    
+    .loading .loader {
+      display: inline-block;
+    }
+
+    .button-alert .loader {
+      border-top: 2px solid var(--accent-pink);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 48px;
+      }
+      .section-title {
+        font-size: 24px;
+      }
+      .container, .header {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>DeepsProxy</h1>
+    <p>> O seu gateway universal de Inteligência Artificial_</p>
+  </div>
+
+  <div class="container">
+    <!-- Vault Status -->
+    <div class="card">
+      <div class="vault-section">
+        <div>
+          <h2 class="section-title">[ Vault Status ]</h2>
+          <p id="vault-status-text">Verificando status do cofre...</p>
+        </div>
+        <div>
+          <button class="button-primary" id="btn-vault-setup" onclick="openVaultModal()">CONFIGURAR COFRE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Providers -->
+    <div class="card">
+      <h2 class="section-title">[ Modelos Disponíveis ]</h2>
+      <div class="grid" id="providers-grid">
+        <!-- Injetado via JS -->
+      </div>
+    </div>
+
+    <!-- Setup Info -->
+    <div class="card">
+      <h2 class="section-title">[ Como Configurar ]</h2>
+      <p style="margin-bottom: 16px; font-size: 16px;">
+        Copie as informações abaixo e cole nas configurações de API do seu editor de código (Opção OpenAI Compatible):
+      </p>
+      <div class="setup-code">
+        <span>Base URL:</span> http://127.0.0.1:3000/v1<br>
+        <span>API Key: </span> <span id="setup-api-key" style="color: var(--text-white)">Sua Senha do Cofre</span>
+      </div>
+      <p style="margin-top: 16px; font-size: 14px;">
+        * Em "Custom Model Name", digite o nome do modelo que você ativou acima (ex: <code>glm-4</code>, <code>kimi-chat</code>, <code>deepseek-reasoner</code>).
+      </p>
+    </div>
+  </div>
+
+  <!-- Vault Modal -->
+  <div class="modal-overlay" id="vault-modal">
+    <div class="modal">
+      <h2 class="section-title" style="margin-bottom: 16px; font-size: 24px;">[ Setup ]</h2>
+      <p style="font-size: 14px;">
+        Crie uma Senha Mestra forte. Ela será usada para criptografar todos os seus logins salvos e também será a sua API Key.
+      </p>
+      <div class="form-group">
+        <label>> Senha_</label>
+        <input type="password" id="vault-password" class="input-text" placeholder="***">
+      </div>
+      <div style="display: flex; gap: 16px; justify-content: flex-end;">
+        <a href="#" class="link" style="padding: 8px 0; font-size: 14px;" onclick="closeVaultModal(event)">[ CANCELAR ]</a>
+        <button class="button-primary" id="btn-save-vault" onclick="setupVault()">
+          <span class="loader"></span> SALVAR
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const providers = [
+      { id: 'deepseek', name: 'DeepSeek', model: 'deepseek-reasoner' },
+      { id: 'kimi', name: 'Kimi', model: 'kimi-chat' },
+      { id: 'glm', name: 'Z.ai', model: 'glm-4' },
+      { id: 'mimo', name: 'MiMo', model: 'mimo-chat' },
+      { id: 'huggingface', name: 'HuggingFace', model: 'hf-chat' }
+    ];
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/dashboard/status');
+        const data = await res.json();
+        
+        // Update Vault Status
+        const vaultStatusText = document.getElementById('vault-status-text');
+        const btnVaultSetup = document.getElementById('btn-vault-setup');
+        
+        if (data.vaultUnlocked) {
+          vaultStatusText.innerHTML = '<span style="color: var(--accent-green)">> Destrancado. Sessões seguras.</span>';
+          btnVaultSetup.style.display = 'none';
+        } else if (data.vaultExists) {
+          vaultStatusText.innerHTML = '<span style="color: var(--accent-pink)">> TRANCADO.</span> Destranque o cofre no terminal.';
+          btnVaultSetup.innerText = 'TRANCADO';
+          btnVaultSetup.disabled = true;
+        } else {
+          vaultStatusText.innerHTML = '<span style="color: var(--text-light)">> Inativo.</span> Crie uma Senha Mestra para iniciar.';
+          btnVaultSetup.innerText = 'CONFIGURAR COFRE';
+        }
+
+        // Update Providers Grid
+        const grid = document.getElementById('providers-grid');
+        grid.innerHTML = '';
+        
+        providers.forEach(p => {
+          const isReady = data.activeProfiles.includes(p.id);
+          const card = document.createElement('div');
+          card.className = 'provider-card';
+          card.innerHTML = `
+            <div class="provider-header">
+              <div class="provider-name">${p.name}</div>
+              <div class="${isReady ? 'badge-success' : 'badge-neutral'}">
+                ${isReady ? 'OK' : 'OFF'} 
+              </div>
+            </div>
+            <div style="font-size: 14px;">
+              > ${p.model}
+            </div>
+            <div style="margin-top: auto;">
+              ${isReady 
+                ? `<button class="button-alert" style="width: 100%" onclick="relogin('${p.id}')">REFAZER LOGIN</button>` 
+                : `<button class="button-primary" style="width: 100%" onclick="login('${p.id}')" id="btn-login-${p.id}"><span class="loader"></span> INICIAR SESSÃO</button>`
+              }
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error('Failed to fetch status', err);
+      }
+    }
+
+    async function login(providerId) {
+      const btn = document.getElementById(`btn-login-${providerId}`);
+      btn.classList.add('loading');
+      btn.disabled = true;
+      try {
+        await fetch(`/api/dashboard/login/${providerId}`, { method: 'POST' });
+        setTimeout(fetchStatus, 3000);
+      } catch (err) {
+        alert('Erro ao iniciar login: ' + err.message);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    async function relogin(providerId) {
+      if(confirm('Isso abrirá o navegador novamente. Deseja continuar?')) {
+        login(providerId);
+      }
+    }
+
+    function openVaultModal() {
+      document.getElementById('vault-modal').classList.add('active');
+      document.getElementById('vault-password').focus();
+    }
+
+    function closeVaultModal(e) {
+      if (e) e.preventDefault();
+      document.getElementById('vault-modal').classList.remove('active');
+      document.getElementById('vault-password').value = '';
+    }
+
+    async function setupVault() {
+      const pwd = document.getElementById('vault-password').value;
+      if (pwd.length < 4) {
+        alert('A senha deve ter pelo menos 4 caracteres.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-save-vault');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/dashboard/vault/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd })
+        });
+        
+        if (!res.ok) throw new Error(await res.text());
+        
+        alert('Cofre configurado e criptografado!');
+        closeVaultModal();
+        fetchStatus();
+      } catch (err) {
+        alert('Erro: ' + err.message);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    fetchStatus();
+    setInterval(fetchStatus, 5000);
+  </script>
+</body>
+</html>

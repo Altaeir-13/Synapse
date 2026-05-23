@@ -17,3 +17,8 @@ start-deepsproxy.sh
 # Cofre Criptografado (Vault)
 .env.enc
 *.enc
+
+# Temp and Test files
+scratch/
+*.mp4
+hugchat.py

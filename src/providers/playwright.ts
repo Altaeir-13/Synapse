@@ -34,7 +34,7 @@ export async function initPlaywright(providerId: string, headless = true) {
     profilePath = localProfile;
   }
 
-  const context = await chromium.launchPersistentContext(profilePath, {
+  const launchOptions = {
     headless,
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
     args: [
@@ -46,7 +46,19 @@ export async function initPlaywright(providerId: string, headless = true) {
       '--disable-dev-shm-usage',
       '--disable-gpu',
     ],
-  });
+  };
+
+  let context: BrowserContext;
+  try {
+    context = await chromium.launchPersistentContext(profilePath, { ...launchOptions, channel: 'chrome' });
+  } catch (e) {
+    try {
+      context = await chromium.launchPersistentContext(profilePath, { ...launchOptions, channel: 'msedge' });
+    } catch (e2) {
+      // Fallback to downloaded playwright chromium if both fail
+      context = await chromium.launchPersistentContext(profilePath, launchOptions);
+    }
+  }
 
   // Handle unexpected closures to self-heal
   context.on('close', async () => {

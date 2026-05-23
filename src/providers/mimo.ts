@@ -1,5 +1,5 @@
 import { Provider, ParsedCompletion, EmitChunk } from './base.ts';
-import { getActivePage } from './playwright.ts';
+import { getActivePage, ensurePlaywright } from './playwright.ts';
 import { makeChunk } from '../shared/utils/stream-utils.ts';
 import { OpenAIRequest, Usage } from '../shared/types/index.ts';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,6 +12,7 @@ export class MiMoProvider implements Provider {
   async close(): Promise<void> {}
 
   private async getFreshAuth() {
+    await ensurePlaywright(this.id, true);
     const page = getActivePage(this.id);
     if (!page) {
         throw new Error('MiMo browser not initialized. Run `npm run login:mimo` first.');

@@ -1,5 +1,5 @@
 import { Provider, ParsedCompletion, EmitChunk } from './base.ts';
-import { getActivePage } from './playwright.ts';
+import { getActivePage, ensurePlaywright } from './playwright.ts';
 import { makeChunk } from '../shared/utils/stream-utils.ts';
 import { OpenAIRequest, Usage } from '../shared/types/index.ts';
 
@@ -14,6 +14,7 @@ export class GLMProvider implements Provider {
   async close(): Promise<void> {}
 
   private async captureZaiRequest(finalPrompt: string): Promise<{ url: string, headers: Record<string, string>, payload: any }> {
+    await ensurePlaywright(this.id, true);
     const page = getActivePage(this.id);
     if (!page) {
         throw new Error('GLM browser not initialized. Run `npm run login:glm` first.');
@@ -73,21 +74,11 @@ export class GLMProvider implements Provider {
   ): Promise<ParsedCompletion> {
     
     // 1. Capture a fresh request structure for THIS prompt
-    // Z.ai calculates a signature based on the prompt text and attaches captcha tokens.
-    // We MUST use Playwright to let their JS do the math.
     const { url, headers, payload } = await this.captureZaiRequest(finalPrompt);
 
-    // 2. Inject the FULL conversation history into the captured payload
-    // The frontend only typed the 'finalPrompt', so its messages array only has 1 item.
-    payload.messages = request.messages.map(m => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-    }));
-
-    // Override model if provided
-    if (request.model && request.model !== 'glm') {
-        payload.model = request.model;
-    }
+    // Z.ai calculates a strict signature based on the payload.
+    // We MUST NOT modify payload.messages or payload.model, as it invalidates the signature and causes 500 errors.
+    // The finalPrompt already contains the fully serialized conversation history.
 
     // 3. Fire the request ourselves
     const response = await fetch(url, {
@@ -119,7 +110,7 @@ export class GLMProvider implements Provider {
     let buffer = '';
     
     let fullContent = '';
-    let previousText = '';
+    let reasoningContent = '';
 
     while (true) {
         const { done, value } = await reader.read();
@@ -140,29 +131,25 @@ export class GLMProvider implements Provider {
                     const obj = JSON.parse(jsonStr);
                     
                     let deltaContent = '';
+                    let isReasoning = false;
                     
-                    if (obj.choices && obj.choices.length > 0 && obj.choices[0].delta) {
-                        deltaContent = obj.choices[0].delta.content || '';
-                    } else if (obj.parts && obj.parts.length > 0) {
-                        const contentArr = obj.parts[0].content;
-                        if (contentArr && contentArr.length > 0) {
-                            const textObj = contentArr.find((c: any) => c.type === 'text');
-                            if (textObj && textObj.text) {
-                                const newText = textObj.text;
-                                if (newText.length > previousText.length) {
-                                    deltaContent = newText.substring(previousText.length);
-                                    previousText = newText;
-                                }
-                            }
+                    if (obj.data && obj.data.delta_content) {
+                        deltaContent = obj.data.delta_content;
+                        if (obj.data.phase === 'thinking') {
+                            isReasoning = true;
                         }
                     }
                     
                     if (deltaContent) {
-                        fullContent += deltaContent;
-                        if (emit) await emit(makeChunk(completionId, model, { content: deltaContent }));
+                        if (isReasoning) {
+                            reasoningContent += deltaContent;
+                        } else {
+                            fullContent += deltaContent;
+                        }
+                        if (emit) await emit(makeChunk(completionId, model, { content: isReasoning ? '' : deltaContent }));
                     }
                     
-                    if (obj.status === 'finish') {
+                    if (obj.data && obj.data.phase === 'done') {
                         break;
                     }
                 } catch (e) {
@@ -180,7 +167,7 @@ export class GLMProvider implements Provider {
 
     return {
       content: fullContent,
-      reasoningContent: '',
+      reasoningContent: reasoningContent,
       toolCalls: [],
       finishReason: 'stop',
       usage

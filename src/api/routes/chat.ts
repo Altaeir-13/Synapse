@@ -113,7 +113,7 @@ export async function chatCompletions(c: Context) {
           lastError = err;
           recordFailure(body.model, promptSizeUsed);
           if (attempt >= maxAttempts) {
-            await streamWriter.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+            await streamWriter.write(`data: ${JSON.stringify({ error: { message: err.message } })}\n\n`);
             await streamWriter.write('data: [DONE]\n\n');
             return;
           }

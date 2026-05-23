@@ -32,6 +32,8 @@ export class HuggingFaceProvider implements Provider {
       const cookiesArr = await activePage.context().cookies();
       const cookies = cookiesArr.map(c => `${c.name}=${c.value}`).join('; ');
 
+      const userAgent = await activePage.evaluate(() => navigator.userAgent);
+      
       // To interact with the API, HF Chat usually requires specific headers (like origin, referer) 
       // and occasionally an authorization header if logged in. We'll extract basic ones.
       const headers = {
@@ -39,7 +41,8 @@ export class HuggingFaceProvider implements Provider {
         'content-type': 'application/json',
         'origin': 'https://huggingface.co',
         'referer': 'https://huggingface.co/chat/',
-        'cookie': cookies
+        'cookie': cookies,
+        'user-agent': userAgent
       };
 
       return { headers, cookies };
@@ -62,7 +65,10 @@ export class HuggingFaceProvider implements Provider {
     let hfModel = 'Qwen/Qwen2.5-72B-Instruct'; // Default
     if (request.model.toLowerCase().includes('llama')) hfModel = 'meta-llama/Llama-3.1-70B-Instruct';
     if (request.model.toLowerCase().includes('gemma')) hfModel = 'google/gemma-2-27b-it';
-    if (request.model.toLowerCase().includes('mistral')) hfModel = 'mistralai/Mistral-Nemo-Instruct-2407';
+    if (request.model.toLowerCase().includes('mistral')) {
+      // Mistral models were removed from HuggingFace Chat. Fallback to Cohere Command R.
+      hfModel = 'CohereLabs/c4ai-command-r-08-2024';
+    }
     
     // 2. Create Conversation (HF Chat requires creating a conversation first)
     // Note: HF API can be volatile. This is a best-effort structural implementation.
@@ -77,28 +83,58 @@ export class HuggingFaceProvider implements Provider {
       throw new Error(`Failed to create HF conversation: ${createConvRes.status} - ${errText}`);
     }
     
-    const convData = await createConvRes.json();
+    const textData = await createConvRes.text();
+    let convData;
+    try {
+      convData = JSON.parse(textData);
+    } catch (e) {
+      throw new Error(`HuggingFace API returned invalid JSON (possibly Cloudflare or Login page). Response starts with: ${textData.substring(0, 50)}...`);
+    }
     const convId = convData.conversationId;
 
+    // 2.5 Fetch conversation info to get rootMessageId
+    const infoRes = await fetch(`https://huggingface.co/chat/api/v2/conversations/${convId}`, {
+      headers: { ...headers, 'accept': '*/*' }
+    });
+    
+    if (!infoRes.ok) {
+      const errText = await infoRes.text().catch(() => '');
+      throw new Error(`Failed to fetch HF conv info: ${infoRes.status} - ${errText}`);
+    }
+    
+    const apiData = await infoRes.json();
+    const rootMessageId = apiData?.json?.rootMessageId || uuidv4(); // fallback just in case
+
+    let finalInputs = finalPrompt;
+    if (hfModel.toLowerCase().includes('llama')) {
+      // Append an instruction to stop Llama 3 from hallucinating HF internal tools
+      const antiToolPrompt = "\n\n[CRITICAL SYSTEM INSTRUCTION: DO NOT use any internal tools like `hf_whoami`. DO NOT output JSON function calls. Answer the user's request directly.]";
+      finalInputs += antiToolPrompt;
+    }
+
     // 3. Send Message
+    const formData = new FormData();
+    formData.append('data', JSON.stringify({
+      id: rootMessageId,
+      inputs: finalInputs,
+      is_retry: false,
+      is_continue: false,
+      web_search: false,
+      tools: []
+    }));
+
+    const chatHeaders = { ...headers, 'referer': `https://huggingface.co/chat/conversation/${convId}` };
+    delete chatHeaders['content-type']; // let FormData set multipart boundary
+
     const response = await fetch(`https://huggingface.co/chat/conversation/${convId}`, {
       method: 'POST',
-      headers,
-      body: JSON.stringify({
-        inputs: finalPrompt,
-        parameters: {
-          temperature: request.temperature || 0.7,
-          top_p: request.top_p || 0.95,
-          return_full_text: false,
-          max_new_tokens: request.max_tokens || 4096
-        },
-        stream: true,
-        options: { use_cache: false }
-      })
+      headers: chatHeaders,
+      body: formData
     });
 
     if (!response.ok || !response.body) {
-      throw new Error(`Failed to fetch from HuggingFace: ${response.status}`);
+      const errText = await response.text().catch(() => '');
+      throw new Error(`Failed to fetch from HuggingFace: ${response.status} - ${errText}`);
     }
 
     return this.parseStreamToOpenAI(response.body, completionId, request.model, emit);
@@ -126,22 +162,49 @@ export class HuggingFaceProvider implements Provider {
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data:')) continue;
+        if (!trimmed) continue;
 
-        const dataStr = trimmed.slice(5).trim();
+        let dataStr = trimmed;
+        if (dataStr.startsWith('data:')) {
+          dataStr = dataStr.slice(5).trim();
+        }
         if (dataStr === '[DONE]') continue;
 
+        let chunk: any;
         try {
-          const chunk = JSON.parse(dataStr);
-          // HF Chat typically sends { type: 'stream', token: ' hello' }
-          if (chunk.type === 'stream' && chunk.token) {
-             const text = chunk.token.replace(/^\u0000/, ''); // Remove leading nulls if any
+          chunk = JSON.parse(dataStr);
+        } catch (e) {
+          console.log("RAW HF UNPARSEABLE:", dataStr);
+          continue;
+        }
+
+        console.log("RAW HF CHUNK:", JSON.stringify(chunk).substring(0, 300));
+        
+        if (chunk.type === 'error' || (chunk.type === 'status' && chunk.status === 'error')) {
+          const errMsg = `\n\n[HuggingFace API Error: ${chunk.message || JSON.stringify(chunk)}]`;
+          content += errMsg;
+          if (emit) await emit(makeChunk(completionId, model, { content: errMsg }));
+          break;
+        }
+
+        // HF Chat typically sends { type: 'stream', token: ' hello' }
+        if (chunk.type === 'stream' && chunk.token) {
+           const text = chunk.token.replace(/\u0000/g, ''); // Remove all nulls
+           if (text) {
              content += text;
              if (emit) await emit(makeChunk(completionId, model, { content: text }));
-          }
-        } catch (e) {}
+           }
+        } else if (chunk.type === 'finalAnswer' && chunk.text && !content) {
+           // Fallback if we didn't get stream tokens
+           const text = chunk.text.replace(/\u0000/g, '');
+           content += text;
+           if (emit) await emit(makeChunk(completionId, model, { content: text }));
+        }
       }
+
     }
+
+    console.log('\n[HF Final Content]', content.substring(0, 500) + (content.length > 500 ? '...' : ''));
 
     const usage: Usage = {
       prompt_tokens: 0,

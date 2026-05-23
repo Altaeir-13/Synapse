@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { ParsedToolCall, ToolCallResult, ToolContext } from './types.ts';
 import { SchemaValidationError } from './schema.ts';
 import { registry } from './registry.ts';
-import { robustParseJSON } from '../utils/json.ts';
+import { robustParseJSON } from '../shared/utils/json.ts';
 
 export interface ExecutionLoopConfig {
   maxTurns?: number;

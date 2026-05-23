@@ -1,0 +1,109 @@
+import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import * as tar from 'tar';
+
+const ALGORITHM = 'aes-256-gcm';
+const SALT_LENGTH = 16;
+const IV_LENGTH = 12;
+const AUTH_TAG_LENGTH = 16;
+
+function deriveKey(password: string, salt: Buffer): Buffer {
+  return crypto.scryptSync(password, salt, 32);
+}
+
+export function encryptBuffer(data: Buffer, password: string): Buffer {
+  const salt = crypto.randomBytes(SALT_LENGTH);
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const key = deriveKey(password, salt);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  
+  const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  
+  // Format: [SALT] [IV] [AUTH_TAG] [ENCRYPTED_DATA]
+  return Buffer.concat([salt, iv, authTag, encrypted]);
+}
+
+export function decryptBuffer(data: Buffer, password: string): Buffer {
+  if (data.length < SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) {
+    throw new Error('Data is too short or corrupted');
+  }
+  
+  let offset = 0;
+  const salt = data.subarray(offset, offset + SALT_LENGTH); offset += SALT_LENGTH;
+  const iv = data.subarray(offset, offset + IV_LENGTH); offset += IV_LENGTH;
+  const authTag = data.subarray(offset, offset + AUTH_TAG_LENGTH); offset += AUTH_TAG_LENGTH;
+  const encrypted = data.subarray(offset);
+  
+  const key = deriveKey(password, salt);
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+  
+  try {
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  } catch (e) {
+    throw new Error('Decryption failed: Incorrect password or corrupted data');
+  }
+}
+
+export async function packAndEncryptDir(dirPath: string, destFile: string, password: string): Promise<void> {
+  const dirName = path.basename(dirPath);
+  const parentDir = path.dirname(dirPath);
+  
+  const tarStream = tar.c({ gzip: true, cwd: parentDir }, [dirName]);
+  const chunks: Buffer[] = [];
+  
+  for await (const chunk of tarStream) {
+    chunks.push(Buffer.from(chunk));
+  }
+  
+  const archiveBuffer = Buffer.concat(chunks);
+  const encrypted = encryptBuffer(archiveBuffer, password);
+  fs.writeFileSync(destFile, encrypted);
+}
+
+export async function decryptAndUnpackDir(srcFile: string, destDir: string, password: string): Promise<void> {
+  const encrypted = fs.readFileSync(srcFile);
+  const decrypted = decryptBuffer(encrypted, password);
+  
+  // Create a temporary tar file
+  const tmpTar = path.join(destDir, 'temp.tgz');
+  fs.mkdirSync(destDir, { recursive: true });
+  fs.writeFileSync(tmpTar, decrypted);
+  
+  try {
+    await tar.x({ file: tmpTar, cwd: destDir });
+  } finally {
+    if (fs.existsSync(tmpTar)) {
+      fs.unlinkSync(tmpTar);
+    }
+  }
+}
+
+export function decryptEnvFile(srcFile: string, password: string): void {
+  const encrypted = fs.readFileSync(srcFile);
+  const decrypted = decryptBuffer(encrypted, password).toString('utf-8');
+  
+  decrypted.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        const key = trimmed.substring(0, idx).trim();
+        let val = trimmed.substring(idx + 1).trim();
+        // Remove quotes if present
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.substring(1, val.length - 1);
+        }
+        process.env[key] = val;
+      }
+    }
+  });
+}
+
+export function secureWipeDir(dirPath: string): void {
+  if (fs.existsSync(dirPath)) {
+    fs.rmSync(dirPath, { recursive: true, force: true });
+  }
+}

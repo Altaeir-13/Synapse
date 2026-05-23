@@ -1,90 +1,99 @@
-/*
- * File: index.ts
- * Project: deepsproxy
- * Author: Pedro Farias
- * Created: 2026-05-09
- * 
- * Last Modified: Sat May 09 2026
- * Modified By: Pedro Farias
- */
-
 import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { chatCompletions } from './routes/chat.ts';
 import * as dotenv from 'dotenv';
-import { initPlaywright } from './services/playwright.ts';
-import { getContextLength } from './services/telemetry.ts';
+import { getProvider } from './providers/index.ts';
+import { app } from './app.ts';
+import { fileURLToPath } from 'url';
+import { decryptEnvFile, secureWipeDir } from './core/security/vault.ts';
+import readline from 'readline';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
-export const app = new Hono();
+(globalThis as any)._vaultPassword = process.env.DEEPSPROXY_PASSWORD || '';
 
-function modelEntry(id: string) {
-  const dynamicLimit = getContextLength(id);
-  return {
-    id,
-    object: 'model',
-    created: Math.floor(Date.now() / 1000),
-    owned_by: 'deepseek',
-    permission: [],
-    root: id,
-    parent: null,
-    context_length: dynamicLimit,
-    max_context_tokens: dynamicLimit,
-    max_input_tokens: dynamicLimit,
-    max_output_tokens: 8_000,
-  };
-}
-
-app.use('*', cors());
-
-app.use('*', async (c, next) => {
-  const apiKey = process.env.API_KEY;
-  if (apiKey) {
-    const authHeader = c.req.header('Authorization');
-    const xApiKey = c.req.header('X-API-Key');
-    const providedKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : xApiKey;
-    if (!providedKey || providedKey !== apiKey) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
+async function ensureVaultUnlocked() {
+  if (process.env.TEST_MOCK_PLAYWRIGHT) return;
+  
+  const envEncPath = path.resolve('.env.enc');
+  const hasEnvEnc = fs.existsSync(envEncPath);
+  
+  let requiresPassword = hasEnvEnc;
+  if (!requiresPassword) {
+    const cwdFiles = fs.readdirSync(process.cwd());
+    requiresPassword = cwdFiles.some(f => f.endsWith('_profile.enc'));
   }
-  await next();
-});
 
-// Basic health check
-app.get('/health', (c) => c.json({ status: 'ok' }));
+  if (!requiresPassword) return;
+  
+  if ((globalThis as any)._vaultPassword) {
+    if (hasEnvEnc) decryptEnvFile(envEncPath, (globalThis as any)._vaultPassword);
+    return;
+  }
 
-// OpenAI compatible routes
-app.post('/v1/chat/completions', chatCompletions);
-
-app.get('/v1/models', (c) => {
-  return c.json({
-    object: 'list',
-    data: [
-      modelEntry('deepseek-v4-flash'),
-      modelEntry('deepseek-v4-flash-thinking'),
-      modelEntry('deepseek-v4-pro'),
-      modelEntry('deepseek-v4-pro-thinking')
-    ]
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
   });
-});
 
-// Initialize playwright when server starts
-import { fileURLToPath } from 'url';
-
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  initPlaywright().then(() => {
-    console.log('Playwright initialized.');
-    const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-    console.log(`Server is running on port ${port}`);
-
-    serve({
-      fetch: app.fetch,
-      port
+  return new Promise<void>((resolve) => {
+    let hidden = false;
+    rl.question('Enter Vault Master Password: ', (password) => {
+      hidden = false;
+      (globalThis as any)._vaultPassword = password;
+      if (hasEnvEnc) decryptEnvFile(envEncPath, password);
+      console.log('\nVault unlocked!');
+      rl.close();
+      resolve();
     });
-  }).catch((err: any) => {
-    console.error('Failed to initialize playwright:', err);
-    process.exit(1);
+    hidden = true;
+    (rl as any)._writeToOutput = function _writeToOutput(stringToWrite: string) {
+      if (!hidden) {
+        (rl as any).output.write(stringToWrite);
+      } else {
+        (rl as any).output.write(stringToWrite.replace(/./g, '*'));
+      }
+    };
   });
 }
+
+ensureVaultUnlocked().then(() => {
+  if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    const activeProviders = (process.env.ACTIVE_PROVIDERS || 'deepseek').split(',').map(s => s.trim());
+
+    Promise.all(activeProviders.map(async (pid) => {
+      try {
+        const p = getProvider(pid);
+        await p.init();
+        console.log(`[Init] Provider '${pid}' initialized.`);
+      } catch (e: any) {
+        console.warn(`[Init] Could not initialize provider '${pid}': ${e.message}`);
+      }
+    })).then(() => {
+      const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+      const hostname = process.env.HOST || '127.0.0.1';
+      console.log(`Server is running on http://${hostname}:${port}`);
+
+      serve({
+        fetch: app.fetch,
+        port,
+        hostname
+      });
+    }).catch((err: any) => {
+      console.error('Failed to initialize server:', err);
+      process.exit(1);
+    });
+  }
+});
+
+// Cleanup orphaned temp profiles on startup and shutdown
+function cleanupTempProfiles() {
+  const tmpRoot = require('os').tmpdir();
+  const tempDirs = fs.readdirSync(tmpRoot).filter(d => d.startsWith('deepsproxy_profile_'));
+  for (const d of tempDirs) {
+    secureWipeDir(path.join(tmpRoot, d));
+  }
+}
+cleanupTempProfiles();
+process.on('exit', cleanupTempProfiles);
+process.on('SIGINT', () => process.exit());

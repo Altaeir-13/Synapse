@@ -10,6 +10,22 @@ Proxy API local compatível com OpenAI que roteia requisições para modelos Dee
 
 ---
 
+## 🙏 Créditos e Projeto Original
+
+Este projeto é uma versão expandida e refatorada do **[DeepsProxy original](https://github.com/pedrofariasx/deepsproxy)** criado por **Pedro Farias (@pedrofariasx)**.  
+Gostaríamos de expressar nossa profunda gratidão ao desenvolvedor original por criar a fundação e o mecanismo inovador de bridge via Playwright que tornou este ecossistema possível. Todo o crédito pela ideia base e proxy inicial do DeepSeek pertence a ele.
+
+## 🔄 O que mudou nesta versão?
+
+Esta versão transformou a ferramenta focada em DeepSeek em um gateway multi-provedor com arquitetura escalável:
+
+- **🤖 Suporte Multi-Modelos**: Integramos suporte nativo para **Kimi (Moonshot)**, **GLM (Zhipu)**, **HuggingFace** e **MiMo (Xiaomi)** trabalhando paralelamente ao DeepSeek.
+- **🏗️ Arquitetura Domain-Driven (DDD)**: O código-fonte foi completamente reorganizado. Saímos de uma estrutura plana para uma separação limpa em domínios (`api/`, `core/`, `providers/`, `shared/` e `tools/`), adotando padrões de nível Enterprise.
+- **🔒 Segurança e Isolamento Aprimorados**: Regras rígidas adicionadas ao `.gitignore` e reposicionamento de artefatos temporários para garantir que cookies de sessão do Playwright e tokens nunca vazem no GitHub.
+- **⚙️ Tipagem Estrita**: Refatoramos e unificamos todas as interfaces TypeScript (ex: `ParsedCompletion`, `Provider`) para assegurar 100% de compatibilidade e segurança de tipos nas respostas da OpenAI API spec em todos os provedores.
+
+---
+
 ## ✨ Features
 
 - **OpenAI API Compatible**: Interface compatível com `/v1/chat/completions` e `/v1/models`
@@ -366,6 +382,11 @@ services:
       - PLAYWRIGHT_HEADLESS=true
     volumes:
       - ./deepseek_profile:/app/deepseek_profile
+      - ./kimi_profile:/app/kimi_profile
+      - ./glm_profile:/app/glm_profile
+      - ./mimo_profile:/app/mimo_profile
+    cap_add:
+      - SYS_ADMIN
     restart: unless-stopped
 ```
 
@@ -460,6 +481,13 @@ Distribuído sob licença ISC. Veja `LICENSE` para mais informações.
 ## ⚠️ Disclaimer
 
 > Este projeto é fornecido estritamente para fins educacionais e de pesquisa.
+
+### Hardening de Segurança Local
+Para garantir a máxima proteção da máquina local:
+- **Sandbox do Chromium**: O Playwright roda *com* a sandbox habilitada. Por este motivo, para rodar no Docker, o parâmetro `cap_add: [SYS_ADMIN]` é obrigatório no `docker-compose.yml`.
+- **Network Binding**: O servidor é blindado para rodar nativamente apenas em `127.0.0.1` (localhost). Nenhuma rede externa consegue acessar a porta, prevenindo vazamentos em redes Wi-Fi públicas.
+- **Strict CORS**: O sistema bloqueia requisições CSRF/SSRF. Apenas origens provenientes de `localhost` podem disparar a API no navegador.
+- **Timing Attacks**: A validação de `API_KEY` utiliza `crypto.timingSafeEqual` mitigando ataques de força bruta por tempo.
 
 Os autores não incentivam ou endossam:
 - Uso indevido ou malicioso

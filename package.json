@@ -5,8 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "npx tsx src/index.ts",
-    "login": "npx tsx src/login.ts",
-    "test": "tsx --test src/**/*.test.ts",
+    "setup-vault": "npx tsx src/scripts/setup-vault.ts",
+    "login": "npx tsx src/scripts/login.ts deepseek",
+    "login:ds": "npx tsx src/scripts/login.ts deepseek",
+    "login:hf": "npx tsx src/scripts/login.ts huggingface",
+    "login:kimi": "npx tsx src/scripts/login.ts kimi",
+    "login:glm": "npx tsx src/scripts/login.ts glm",
+    "login:mimo": "npx tsx src/scripts/login.ts mimo",
+    "test": "tsx --test src/__tests__/**/*.test.ts",
     "build": "tsc"
   },
   "keywords": [],
@@ -17,10 +23,12 @@
     "dotenv": "^17.4.2",
     "hono": "^4.12.18",
     "playwright": "^1.59.1",
+    "tar": "^7.5.15",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
+    "@types/tar": "^6.1.13",
     "@types/uuid": "^10.0.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"

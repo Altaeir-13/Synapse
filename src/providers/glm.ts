@@ -13,56 +13,56 @@ export class GLMProvider implements Provider {
 
   async close(): Promise<void> {}
 
-  private async getFreshHeaders(): Promise<Record<string, string>> {
-    if (this.refreshPromise) {
-        await this.refreshPromise;
-        return this.cachedHeaders!;
+  private async captureZaiRequest(finalPrompt: string): Promise<{ url: string, headers: Record<string, string>, payload: any }> {
+    const page = getActivePage(this.id);
+    if (!page) {
+        throw new Error('GLM browser not initialized. Run `npm run login:glm` first.');
     }
 
-    this.refreshPromise = (async () => {
-        const page = getActivePage(this.id);
-        if (!page) {
-            throw new Error('GLM browser not initialized. Run `npm run login:glm` first.');
-        }
+    if (!page.url().includes('chat.z.ai')) {
+        await page.goto('https://chat.z.ai/', { waitUntil: 'domcontentloaded' });
+    }
 
-        // Ensure we are on the page
-        if (!page.url().includes('chatglm.cn')) {
-            await page.goto('https://chatglm.cn/', { waitUntil: 'domcontentloaded' });
-        }
-
-        return new Promise<void>(async (resolve, reject) => {
-            // Add a temporary route to intercept the request
-            const routeHandler = async (route: any) => {
-                const req = route.request();
-                this.cachedHeaders = await req.allHeaders();
+    return new Promise(async (resolve, reject) => {
+        let resolved = false;
+        const routeHandler = async (route: any) => {
+            const req = route.request();
+            if (req.method() === 'POST') {
+                const url = req.url();
+                const headers = await req.allHeaders();
+                const postDataStr = req.postData() || '';
                 await route.abort();
-                page.unroute('**/assistant/stream', routeHandler);
-                resolve();
-            };
-            
-            await page.route('**/assistant/stream', routeHandler);
-
-            try {
-                // Find the textarea and type something to trigger a request
-                // Wait for the textarea to be ready
-                await page.waitForSelector('textarea', { state: 'visible', timeout: 10000 });
-                await page.fill('textarea', 'ping');
-                await page.keyboard.press('Enter');
-            } catch (e) {
-                page.unroute('**/assistant/stream', routeHandler);
-                reject(new Error('Failed to trigger GLM request for headers: ' + (e as Error).message));
+                page.unroute('**/api/v2/chat/completions*', routeHandler);
+                
+                if (!resolved) {
+                    resolved = true;
+                    resolve({
+                        url,
+                        headers,
+                        payload: JSON.parse(postDataStr)
+                    });
+                }
+            } else {
+                await route.continue();
             }
-        });
-    })();
+        };
+        
+        await page.route('**/api/v2/chat/completions*', routeHandler);
 
-    try {
-        await this.refreshPromise;
-    } finally {
-        this.refreshPromise = null;
-    }
-    
-    if (!this.cachedHeaders) throw new Error('Failed to capture GLM headers');
-    return this.cachedHeaders;
+        try {
+            // Type into the textarea to trigger the frontend signature and captcha execution
+            // chat.z.ai typically uses a textarea
+            const textArea = page.locator('textarea').first();
+            await textArea.waitFor({ state: 'visible', timeout: 15000 });
+            await textArea.fill(finalPrompt);
+            await page.keyboard.press('Enter');
+        } catch (e) {
+            if (!resolved) {
+                page.unroute('**/api/v2/chat/completions*', routeHandler);
+                reject(new Error('Failed to trigger Z.ai request: ' + (e as Error).message));
+            }
+        }
+    });
   }
 
   async handleChatCompletion(
@@ -71,48 +71,30 @@ export class GLMProvider implements Provider {
     completionId: string,
     emit?: EmitChunk
   ): Promise<ParsedCompletion> {
-    let headers = this.cachedHeaders;
-    if (!headers) {
-        headers = await this.getFreshHeaders();
+    
+    // 1. Capture a fresh request structure for THIS prompt
+    // Z.ai calculates a signature based on the prompt text and attaches captcha tokens.
+    // We MUST use Playwright to let their JS do the math.
+    const { url, headers, payload } = await this.captureZaiRequest(finalPrompt);
+
+    // 2. Inject the FULL conversation history into the captured payload
+    // The frontend only typed the 'finalPrompt', so its messages array only has 1 item.
+    payload.messages = request.messages.map(m => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+    }));
+
+    // Override model if provided
+    if (request.model && request.model !== 'glm') {
+        payload.model = request.model;
     }
 
-    const glmPayload = {
-        assistant_id: "65940acff94777010aa6b796",
-        conversation_id: "",
-        project_id: "",
-        chat_type: "user_chat",
-        meta_data: {
-            cogview: { rm_label_watermark: false },
-            is_test: false,
-            input_question_type: "xxxx",
-            channel: "",
-            draft_id: "",
-            chat_mode: "zero",
-            is_networking: false,
-            quote_log_id: "",
-            platform: "pc"
-        },
-        messages: request.messages.map(m => ({
-            role: m.role === 'assistant' ? 'assistant' : 'user',
-            content: [{ type: "text", text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }]
-        }))
-    };
-
-    let response = await fetch('https://chatglm.cn/chatglm/backend-api/assistant/stream', {
+    // 3. Fire the request ourselves
+    const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(glmPayload)
+        body: JSON.stringify(payload)
     });
-
-    // If headers expired or signature invalid, refresh and retry once
-    if (!response.ok) {
-        headers = await this.getFreshHeaders();
-        response = await fetch('https://chatglm.cn/chatglm/backend-api/assistant/stream', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(glmPayload)
-        });
-    }
 
     if (!response.ok) {
       const text = await response.text();
@@ -151,23 +133,33 @@ export class GLMProvider implements Provider {
             if (line.startsWith('data: ')) {
                 try {
                     const jsonStr = line.substring(5).trim();
-                    if (!jsonStr) continue;
+                    if (!jsonStr || jsonStr === '[DONE]') {
+                        if (jsonStr === '[DONE]') break;
+                        continue;
+                    }
                     const obj = JSON.parse(jsonStr);
                     
-                    if (obj.parts && obj.parts.length > 0) {
+                    let deltaContent = '';
+                    
+                    if (obj.choices && obj.choices.length > 0 && obj.choices[0].delta) {
+                        deltaContent = obj.choices[0].delta.content || '';
+                    } else if (obj.parts && obj.parts.length > 0) {
                         const contentArr = obj.parts[0].content;
                         if (contentArr && contentArr.length > 0) {
                             const textObj = contentArr.find((c: any) => c.type === 'text');
                             if (textObj && textObj.text) {
                                 const newText = textObj.text;
                                 if (newText.length > previousText.length) {
-                                    const delta = newText.substring(previousText.length);
-                                    fullContent += delta;
-                                    if (emit) await emit(makeChunk(completionId, model, { content: delta }));
+                                    deltaContent = newText.substring(previousText.length);
                                     previousText = newText;
                                 }
                             }
                         }
+                    }
+                    
+                    if (deltaContent) {
+                        fullContent += deltaContent;
+                        if (emit) await emit(makeChunk(completionId, model, { content: deltaContent }));
                     }
                     
                     if (obj.status === 'finish') {

@@ -24,8 +24,8 @@ async function main() {
       await activePage.goto('https://www.kimi.com/', { waitUntil: 'domcontentloaded' });
     } else if (providerId === 'glm') {
       activePage.on('request', req => {
-         if (req.method() === 'POST' && req.url().includes('/api/')) {
-             console.log(`[Z.ai Network] POST ${req.url()}`);
+         if (req.method() === 'POST' || req.resourceType() === 'websocket') {
+             console.log(`[Z.ai Network] ${req.method()} ${req.url()}`);
          }
       });
       await activePage.goto('https://chat.z.ai/', { waitUntil: 'domcontentloaded' });

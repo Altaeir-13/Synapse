@@ -1,13 +1,19 @@
 node_modules/
 dist/
-deepseek_profile/
 .env
 .env.local
 *.log
 .DS_Store
 coverage/
 .cache/
-.kilo
+.kilo/
 start-deepsproxy.sh
+
+# Profiles e Tokens de Autenticacao
 *_profile/
+*.token
 .kimi-token
+
+# Cofre Criptografado (Vault)
+.env.enc
+*.enc

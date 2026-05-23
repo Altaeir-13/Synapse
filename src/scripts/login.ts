@@ -23,7 +23,12 @@ async function main() {
       });
       await activePage.goto('https://www.kimi.com/', { waitUntil: 'domcontentloaded' });
     } else if (providerId === 'glm') {
-      await activePage.goto('https://chatglm.cn/', { waitUntil: 'domcontentloaded' });
+      activePage.on('request', req => {
+         if (req.method() === 'POST' && req.url().includes('/api/')) {
+             console.log(`[Z.ai Network] POST ${req.url()}`);
+         }
+      });
+      await activePage.goto('https://chat.z.ai/', { waitUntil: 'domcontentloaded' });
     } else if (providerId === 'mimo') {
       await activePage.goto('https://aistudio.xiaomimimo.com/', { waitUntil: 'domcontentloaded' });
     } else {

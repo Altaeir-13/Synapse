@@ -7,6 +7,7 @@ import { decryptEnvFile, secureWipeDir } from './core/security/vault.ts';
 import readline from 'readline';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 dotenv.config();
 
@@ -88,7 +89,7 @@ ensureVaultUnlocked().then(() => {
 
 // Cleanup orphaned temp profiles on startup and shutdown
 function cleanupTempProfiles() {
-  const tmpRoot = require('os').tmpdir();
+  const tmpRoot = os.tmpdir();
   const tempDirs = fs.readdirSync(tmpRoot).filter(d => d.startsWith('deepsproxy_profile_'));
   for (const d of tempDirs) {
     secureWipeDir(path.join(tmpRoot, d));

@@ -1,5 +1,5 @@
 import { Provider, ParsedCompletion, EmitChunk } from './base.ts';
-import { getActivePage } from './playwright.ts';
+import { getActivePage, ensurePlaywright } from './playwright.ts';
 import { v4 as uuidv4 } from 'uuid';
 import { makeChunk } from '../shared/utils/stream-utils.ts';
 import { OpenAIRequest, Usage, ToolCall } from '../shared/types/index.ts';
@@ -20,6 +20,7 @@ export class KimiProvider implements Provider {
   private async getHeaders() {
     if (this.cachedHeaders) return this.cachedHeaders;
 
+    await ensurePlaywright(this.id, true);
     const page = getActivePage(this.id);
     if (!page) {
       throw new Error('Kimi browser not initialized. Run `npm run login:kimi` first.');
@@ -131,38 +132,28 @@ export class KimiProvider implements Provider {
         buffer = buffer.slice(5 + length);
 
         const msgText = new TextDecoder().decode(msgData);
+        let event: any;
         try {
-          const event = JSON.parse(msgText);
-          
-          // Parse Kimi specific ops
-          if (event.op === 'append' && event.mask === 'chat.message.content') {
-            if (event.chat?.message?.content) {
-               // Extract appended text if any. Sometimes it's delta.
-               // Kimi might send the full accumulated text or delta.
-               // Assuming it's full accumulated for "append" or delta for "append".
-               // Wait, 'append' usually means delta. But let's assume it has "content" as delta.
-               // If it's the full text, we need to track what we've sent.
-               // Let's assume it sends "content" delta, or a "text" field.
-            }
-          }
-          // Actually Kimi uses "chat.message.content" and it's a delta in event.chat.message.content ?
-          // Or "messageContent"?
-          
-          // Let's print out the raw events to the console so we can see it during testing
-          console.log("[Kimi Stream Event]", msgText.substring(0, 150));
-
-          if (event.chat?.message?.content && typeof event.chat.message.content === 'string') {
-             // Some implementations send full text, some send delta.
-             // Let's assume Kimi 'append' adds delta.
-             const delta = event.chat.message.content;
-             if (delta) {
-               fullContent += delta;
-               if (emit) await emit(makeChunk(completionId, model, { content: delta }));
-             }
-          }
-
+          event = JSON.parse(msgText);
         } catch (e) {
-          // ignore parse error
+          continue; // ignore parse error
+        }
+        
+        if (event.error) {
+          throw new Error(`Kimi returned stream error: ${event.error.code || JSON.stringify(event.error)}. Your token may be expired. Run npm run login:kimi`);
+        }
+        
+        if (event.op === 'append' && event.block?.text?.content) {
+           const delta = event.block.text.content;
+           if (delta) {
+             fullContent += delta;
+             if (emit) await emit(makeChunk(completionId, model, { content: delta }));
+           }
+        } else if (event.op === 'set' && event.message?.content && !fullContent) {
+           // Fallback in case it's a full string set and we didn't get appends
+           const delta = event.message.content;
+           fullContent += delta;
+           if (emit) await emit(makeChunk(completionId, model, { content: delta }));
         }
       }
     }

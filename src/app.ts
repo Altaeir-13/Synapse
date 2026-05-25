@@ -6,6 +6,11 @@ import { getContextLength } from './core/telemetry/telemetry.ts';
 
 export const app = new Hono();
 
+import fs from 'fs';
+import path from 'path';
+import { initPlaywright, getActivePage } from './providers/playwright.ts';
+import { encryptBuffer, packAndEncryptDir, secureWipeDir } from './core/security/vault.ts';
+
 export function modelEntry(id: string, owner: string = 'deepseek') {
   const dynamicLimit = getContextLength(id);
   return {
@@ -63,7 +68,7 @@ app.get('/v1/models', (c) => {
       modelEntry('meta-llama/Llama-3.1-70B-Instruct', 'huggingface'),
       modelEntry('google/gemma-2-27b-it', 'huggingface'),
       modelEntry('Qwen/Qwen2.5-72B-Instruct', 'huggingface'),
-      modelEntry('mistralai/Mistral-Nemo-Instruct-2407', 'huggingface'),
+      modelEntry('CohereLabs/c4ai-command-r-08-2024', 'huggingface'),
       modelEntry('kimi-chat', 'moonshot'),
       modelEntry('moonshot-v1-8k', 'moonshot'),
       modelEntry('glm-4', 'zhipu'),
@@ -71,3 +76,86 @@ app.get('/v1/models', (c) => {
     ]
   });
 });
+
+// --------------------------------------------------------------------
+// Dashboard GUI Routes (Zero-Terminal)
+// --------------------------------------------------------------------
+
+app.get('/', (c) => {
+  try {
+    const html = fs.readFileSync(path.resolve('src/dashboard/index.html'), 'utf-8');
+    return c.html(html);
+  } catch (e) {
+    return c.text('Dashboard not found.', 404);
+  }
+});
+
+app.get('/api/dashboard/status', (c) => {
+  const vaultUnlocked = !!(globalThis as any)._vaultPassword;
+  const cwdFiles = fs.readdirSync(process.cwd());
+  const vaultExists = cwdFiles.some(f => f.endsWith('_profile.enc')) || fs.existsSync(path.resolve('.env.enc'));
+
+  const providers = ['deepseek', 'kimi', 'glm', 'mimo', 'huggingface'];
+  const activeProfiles = providers.filter(id => {
+    // A profile is ready if the page is active, OR if it has an encrypted vault file, OR if it has a local plaintext folder
+    if (getActivePage(id)) return true;
+    if (cwdFiles.includes(`${id}_profile.enc`) && vaultUnlocked) return true;
+    if (cwdFiles.includes(`${id}_profile`)) return true;
+    return false;
+  });
+
+  return c.json({
+    vaultUnlocked,
+    vaultExists,
+    activeProfiles
+  });
+});
+
+app.post('/api/dashboard/login/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    await initPlaywright(id, false); // false = not headless, so user can login
+    const page = getActivePage(id);
+    if (page) {
+      if (id === 'huggingface') await page.goto('https://huggingface.co/chat/', { waitUntil: 'domcontentloaded' });
+      else if (id === 'kimi') await page.goto('https://www.kimi.com/', { waitUntil: 'domcontentloaded' });
+      else if (id === 'glm') await page.goto('https://chat.z.ai/', { waitUntil: 'domcontentloaded' });
+      else if (id === 'mimo') await page.goto('https://aistudio.xiaomimimo.com/', { waitUntil: 'domcontentloaded' });
+      else await page.goto('https://chat.deepseek.com/', { waitUntil: 'domcontentloaded' });
+    }
+    return c.json({ success: true });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+app.post('/api/dashboard/vault/setup', async (c) => {
+  const body = await c.req.json();
+  const password = body.password;
+  if (!password || password.length < 4) return c.text('Password too short', 400);
+
+  try {
+    (globalThis as any)._vaultPassword = password;
+    
+    const envPath = path.resolve('.env');
+    const envEncPath = path.resolve('.env.enc');
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath);
+      const encryptedEnv = encryptBuffer(envContent, password);
+      fs.writeFileSync(envEncPath, encryptedEnv);
+      fs.unlinkSync(envPath);
+    }
+    
+    const cwdFiles = fs.readdirSync(process.cwd());
+    for (const file of cwdFiles) {
+      if (file.endsWith('_profile') && fs.statSync(file).isDirectory()) {
+        await packAndEncryptDir(file, `${file}.enc`, password);
+        secureWipeDir(file);
+      }
+    }
+    return c.json({ success: true });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+

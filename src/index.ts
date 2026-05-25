@@ -7,6 +7,7 @@ import { decryptEnvFile, secureWipeDir } from './core/security/vault.ts';
 import readline from 'readline';
 import fs from 'fs';
 import path from 'path';
+import open from 'open';
 import os from 'os';
 
 dotenv.config();
@@ -80,6 +81,11 @@ ensureVaultUnlocked().then(() => {
         port,
         hostname
       });
+
+      // Auto-open browser for GUI Dashboard
+      if (!process.env.NO_OPEN) {
+        open(`http://${hostname}:${port}/`).catch(err => console.error('Could not open browser:', err));
+      }
     }).catch((err: any) => {
       console.error('Failed to initialize server:', err);
       process.exit(1);

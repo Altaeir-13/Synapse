@@ -18,9 +18,9 @@ Agora, no terminal, digite os dois comandos abaixo (um de cada vez) e espere ter
 
 ```bash
 npm install
-npx playwright install
 ```
-*O que isso faz? O primeiro baixa os pacotes necessários. O segundo instala um "navegador fantasma" que o proxy usará para acessar os sites de IA por você.*
+
+*O que isso faz? Ele baixa os pacotes necessários.*
 
 ---
 

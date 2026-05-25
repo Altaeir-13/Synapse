@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin": "src/index.ts",
   "scripts": {
     "start": "npx tsx src/index.ts",
     "setup-vault": "npx tsx src/scripts/setup-vault.ts",
@@ -22,16 +23,33 @@
     "@hono/node-server": "^2.0.2",
     "dotenv": "^17.4.2",
     "hono": "^4.12.18",
+    "open": "^11.0.0",
     "playwright": "^1.59.1",
     "tar": "^7.5.15",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
+    "@types/open": "^6.1.0",
     "@types/tar": "^6.1.13",
     "@types/uuid": "^10.0.0",
+    "pkg": "^5.8.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },
-  "type": "module"
+  "type": "module",
+  "pkg": {
+    "scripts": [
+      "src/**/*.ts"
+    ],
+    "assets": [
+      "src/dashboard/**/*"
+    ],
+    "targets": [
+      "node20-linux-x64",
+      "node20-macos-x64",
+      "node20-macos-arm64",
+      "node20-win-x64"
+    ]
+  }
 }

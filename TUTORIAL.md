@@ -20,90 +20,62 @@ Agora, no terminal, digite os dois comandos abaixo (um de cada vez) e espere ter
 npm install
 ```
 
-*O que isso faz? Ele baixa os pacotes necessários.*
-
 ---
 
-## Passo 2: O Arquivo de Configuração (.env)
+## Passo 2: Ligando o Motor e o Dashboard Visual!
 
-O proxy precisa de algumas instruções básicas. 
+Diferente de sistemas complexos, nós construímos uma interface visual (Dashboard) para facilitar sua vida. 
 
-1. Na raiz da pasta do DeepsProxy, crie um arquivo chamado **exatamente** `.env` (apenas `.env`, sem nome antes do ponto).
-2. Abra esse arquivo no Bloco de Notas ou qualquer editor de texto.
-3. Cole o seguinte conteúdo:
-
-```env
-# A porta que o proxy vai rodar
-PORT=3000
-
-# Invente uma senha de segurança para a sua API
-API_KEY=minha-senha-super-secreta-123
-
-# Quais IAs você quer deixar ativadas?
-ACTIVE_PROVIDERS=deepseek,kimi,glm,mimo,huggingface
-```
-Salve e feche o arquivo.
-
----
-
-## Passo 3: Fazendo o Login (Só a primeira vez!)
-
-O DeepsProxy não usa "mágica" para pular a segurança dos sites. Ele literalmente entra na sua conta pelo navegador fantasma, resolve os desafios de segurança (como o Cloudflare) e pega a resposta.
-Para isso, você precisa logar nas suas contas.
-
-No terminal, digite o comando do provedor que quer usar:
-- **DeepSeek:** `npm run login:ds`
-- **Kimi / Moonshot:** `npm run login:kimi`
-- **HuggingFace:** `npm run login:hf`
-- **ChatGLM:** `npm run login:glm`
-- **Xiaomi MiMo:** `npm run login:mimo`
-
-**O que vai acontecer?**
-Um navegador de verdade vai abrir. Faça o login na sua conta normalmente (usando Google, e-mail ou celular). 
-Quando a tela de Chat da IA carregar e estiver pronta para uso, você pode simplesmente **fechar o navegador** (ou apertar `Ctrl+C` no terminal). Seus cookies foram salvos no seu PC!
-
----
-
-## Passo 4: Trancando o Cofre (Vault)
-
-Como seus cookies e sua `API_KEY` agora estão salvos no PC, nós adicionamos um sistema de segurança nível militar (AES-256) para que nenhum vírus ou extensão maliciosa possa roubá-los.
-
-No terminal, rode:
-```bash
-npm run setup-vault
-```
-Ele vai pedir para você inventar uma **Senha Mestra**. *Não esqueça essa senha!* 
-O sistema vai criptografar todos os seus dados e apagar as versões desprotegidas.
-
----
-
-## Passo 5: Ligando o Motor!
-
-Agora que tudo está configurado, logado e seguro, basta ligar o proxy!
-
-No terminal, rode:
+No terminal, simplesmente rode:
 ```bash
 npm start
 ```
-Ele vai pedir a sua **Senha Mestra** (aquela do Passo 4). Ao digitar, ele destranca o cofre na memória RAM e inicia o servidor.
 
-Se aparecer a mensagem `Server is running on http://127.0.0.1:3000`, **PARABÉNS!** Seu proxy está online e pronto para receber requisições.
+Se tudo der certo, o sistema vai abrir automaticamente o seu navegador principal em **http://127.0.0.1:3000/**. Essa é a tela de controle do seu proxy! 
+
+> [!TIP]
+> **API Key de Segurança**: Ao iniciar pela primeira vez, olhe no terminal. O sistema gerou uma `API_KEY` super segura automaticamente para você (algo como `sk-a1b2c3...`). Anote essa chave, você vai precisar dela no Passo 5!
 
 ---
 
-## Passo 6: Plugando no KiloCode / Cursor / Cline
+## Passo 3: Criando o seu Cofre (Vault)
 
-Deixe o terminal aberto rodando. Agora vá no seu programa favorito (KiloCode, Cline, Cursor, etc) nas configurações de API (geralmente em provedores Customizados ou formato OpenAI Compatible).
+Na tela do Dashboard (no seu navegador), o primeiro passo é criar a sua **Senha Mestra** do Cofre (Vault).
+
+1. Na seção "Vault Setup", digite uma senha que você vai lembrar.
+2. Clique em "Setup Security Vault".
+3. Essa senha criptografa seus cookies com tecnologia de nível militar (AES-256), então nenhum vírus ou espião consegue roubar as suas contas. **Não esqueça essa senha!** Sempre que ligar o `npm start` no futuro, ele vai pedir essa senha no terminal para destrancar o cofre.
+
+---
+
+## Passo 4: Fazendo Login nas IAs
+
+Ainda no Dashboard visual:
+
+1. Na tabela "Providers Status", escolha qual IA você quer usar (por exemplo, DeepSeek ou HuggingFace) e clique no botão **Login**.
+2. Um navegador "fantasma" vai se abrir na sua tela.
+3. Nele, faça o login na sua conta normalmente (usando Google, e-mail ou celular) e resolva os desafios de segurança (como o Cloudflare).
+4. Assim que a tela de Chat da IA carregar e estiver pronta para uso, você pode simplesmente **fechar essa janela**. O Dashboard ficará "Verde" (Ativo) para essa IA. Seus cookies foram salvos com segurança dentro do Cofre!
+
+---
+
+## Passo 5: Plugando no KiloCode / Cursor / Cline
+
+Deixe o terminal aberto rodando. Agora vá no seu programa favorito (KiloCode, Cline, Cursor, etc) nas configurações de API (procure por provedores Customizados ou "OpenAI Compatible").
 
 Configure assim:
 
 - **Base URL / API Endpoint:** `http://127.0.0.1:3000/v1`
-- **API Key / Bearer Token:** `minha-senha-super-secreta-123` *(exatamente a mesma do seu `.env` no Passo 2)*
+- **API Key / Bearer Token:** *(Cole aqui a chave `sk-...` que apareceu no seu terminal no Passo 2)*
 - **Custom Model Name:** Aqui você digita o modelo que quer usar. Ex:
   - `deepseek-v4-flash` (Para o DeepSeek rápido)
   - `deepseek-v4-flash-thinking` (Para o DeepSeek R1 Raciocínio longo)
   - `kimi-chat` (Para o Moonshot)
   - `glm-4` (Para o Zhipu)
   - `mimo-v2.5-pro` (Para Xiaomi MiMo)
+  - `meta-llama/Llama-3.1-70B-Instruct` (Para usar via HuggingFace)
 
 **Pronto!** Agora o seu aplicativo vai mandar as perguntas para o `127.0.0.1:3000`, e o seu proxy vai fazer o trabalho pesado de buscar a resposta nas IAs de graça para você!
+
+> [!NOTE]
+> Se quiser travar sua `API_KEY` para não ficar gerando uma nova a cada inicialização, crie um arquivo chamado `.env` na pasta do projeto e adicione a linha: `API_KEY=sk-sua-chave-aqui`.

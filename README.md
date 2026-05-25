@@ -10,6 +10,12 @@ Proxy API local compatível com OpenAI que roteia requisições para modelos Dee
 
 ---
 
+> [!TIP]
+> **🚀 Novo por aqui ou não é programador?** 
+> Preparamos um guia passo a passo com imagens e painel visual para você. **[Clique aqui para ler o Tutorial de Iniciantes (TUTORIAL.md)](./TUTORIAL.md)**.
+
+---
+
 ## 🙏 Créditos e Projeto Original
 
 Este projeto é uma versão expandida e refatorada do **[DeepsProxy original](https://github.com/pedrofariasx/deepsproxy)** criado por **Pedro Farias (@pedrofariasx)**.  
@@ -111,39 +117,49 @@ docker-compose up -d
 
 ## ⚙️ Configuração
 
-Crie o arquivo `.env` na raiz do projeto:
+Você pode configurar o projeto através de um arquivo `.env` na raiz do projeto. 
 
+> [!TIP]
+> Se você não configurar uma `API_KEY` no seu `.env`, o sistema **não** ficará vulnerável. Na primeira vez que você iniciar, ele irá gerar automaticamente uma chave de 48 caracteres altamente segura e exibi-la no terminal para que você a salve.
+
+Exemplo de `.env`:
 ```env
 # Porta do servidor (default: 3000)
 PORT=3000
 
-# Chave de API para proteger endpoints (opcional)
+# Chave de API para proteger endpoints (Será gerada automaticamente se omitida)
 API_KEY=sua-chave-secreta-aqui
 
 # Provedores Ativos (ex: deepseek, kimi, glm, mimo, huggingface)
-ACTIVE_PROVIDERS=deepseek,kimi
+ACTIVE_PROVIDERS=deepseek,huggingface
 
 # Configurações Playwright
 PLAYWRIGHT_HEADLESS=true
 PLAYWRIGHT_TIMEOUT=30000
-
-# Logging
-LOG_LEVEL=info
 ```
 
 > [!CAUTION]
-> **Vault de Segurança**: Após criar o arquivo `.env` e efetuar os logins (`npm run login`), você deve executar `npm run setup-vault` para criptografar seu `.env` e suas sessões do navegador em arquivos `.enc`. Isso protege suas chaves e cookies contra malwares e acessos não autorizados. Após rodar o setup, o `.env` em texto plano será excluído e você precisará digitar sua senha mestra sempre que iniciar o servidor.
+> **Vault de Segurança**: Após efetuar os logins (via Dashboard ou comando `npm run login`), você deve executar `npm run setup-vault` para criptografar seu `.env` e suas sessões do navegador em arquivos `.enc`. Isso protege suas chaves e cookies contra malwares e acessos não autorizados. Após rodar o setup, o `.env` em texto plano será excluído e você precisará digitar sua senha mestra sempre que iniciar o servidor. Seus arquivos criptografados não vazarão no GitHub graças às regras rígidas do `.gitignore`.
+
+### 🖥️ Dashboard (Interface Gráfica)
+O DeepsProxy agora possui um **Dashboard Local** para facilitar sua vida. 
+Ao iniciar o projeto com `npm start`, acesse `http://127.0.0.1:3000/` no seu navegador.
+Lá você poderá:
+- Ver o status do seu Servidor e do seu Cofre (Vault).
+- Realizar o Login em qualquer um dos provedores de IA apenas clicando em um botão (sem precisar usar o terminal).
+- Configurar a Senha Mestra do Vault.
+
+> [!NOTE]
+> Por questões rigorosas de segurança, o Dashboard possui uma trava de rede. Ele só pode ser acessado a partir de `127.0.0.1` (seu próprio computador). Requisições de outros IPs na sua rede serão sumariamente bloqueadas com `403 Forbidden` para evitar roubo da sua Senha Mestra.
 
 ### Variáveis de Ambiente
 
 | Variável | Descrição | Default | Obrigatória |
 |----------|-----------|---------|------------|
 | `PORT` | Porta HTTP do servidor | `3000` | Não |
-| `API_KEY` | Chave para autenticação de requests | - | Não |
+| `API_KEY` | Chave para autenticação de requests | Gerada automaticamente | Não |
 | `PLAYWRIGHT_HEADLESS` | Executar browser em modo headless | `true` | Não |
 | `PLAYWRIGHT_TIMEOUT` | Timeout para operações do Playwright (ms) | `30000` | Não |
-
-\* Necessária para funcionalidades que requerem acesso à API DeepSeek
 
 ---
 

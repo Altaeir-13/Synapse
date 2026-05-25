@@ -59,9 +59,23 @@ Ainda no Dashboard visual:
 
 ---
 
-## Passo 5: Plugando no KiloCode / Cursor / Cline
+## Passo 5: Rodando em Segundo Plano (Opcional - Docker)
 
-Deixe o terminal aberto rodando. Agora vá no seu programa favorito (KiloCode, Cline, Cursor, etc) nas configurações de API (procure por provedores Customizados ou "OpenAI Compatible").
+Se você não quer deixar uma tela preta de terminal aberta o tempo todo, você pode usar o **Docker** para rodar o sistema invisível no fundo do seu computador:
+
+1. Feche o seu terminal atual que estava rodando o `npm start`.
+2. Abra o terminal novamente na mesma pasta.
+3. **Na primeira vez**, rode: `docker-compose build` (pode demorar alguns minutos para baixar a "caixa").
+4. **Para ligar o motor**, rode: `docker-compose up -d`. O terminal vai ser liberado e você pode fechá-lo!
+5. **Para destrancar o cofre**, abra o seu navegador de internet, vá no Dashboard (`http://127.0.0.1:3000/`) e digite a sua Senha Mestra lá. O servidor vai ficar online!
+
+*(Para desligar no futuro, basta abrir o terminal na pasta e rodar `docker-compose down`).*
+
+---
+
+## Passo 6: Plugando no KiloCode / Cursor / Cline
+
+Com o servidor rodando (seja pelo terminal aberto com `npm start` ou invisível via Docker). Agora vá no seu programa favorito (KiloCode, Cline, Cursor, etc) nas configurações de API (procure por provedores Customizados ou "OpenAI Compatible").
 
 Configure assim:
 

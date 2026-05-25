@@ -36,6 +36,35 @@ export function validateAgainstSchema(
     return value;
   }
 
+  // Handle enum without type
+  if (schema.enum !== undefined && schema.type === undefined) {
+    if (!schema.enum.includes(value)) {
+      throw new SchemaValidationError(
+        `Value '${value}' at ${path} is not one of [${schema.enum.map(e => `'${e}'`).join(', ')}]`,
+        path,
+        value
+      );
+    }
+    return value;
+  }
+
+  // Handle anyOf
+  if (schema.anyOf) {
+    let lastError: Error | undefined;
+    for (const subSchema of schema.anyOf) {
+      try {
+        return validateAgainstSchema(value, subSchema, path);
+      } catch (e) {
+        lastError = e as Error;
+      }
+    }
+    throw new SchemaValidationError(
+      `Value at ${path} does not match any of the required schemas. Last error: ${lastError?.message}`,
+      path,
+      value
+    );
+  }
+
   switch (schema.type) {
     case 'object':
       return validateObject(value, schema, path);
@@ -58,6 +87,7 @@ export function validateAgainstSchema(
       }
       return null;
     default:
+      // If no type is specified and it's not an anyOf/enum (handled above), we accept it.
       return value;
   }
 }

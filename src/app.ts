@@ -1,3 +1,8 @@
+/**
+ * @file app.ts
+ * @description Core Hono application configuration. Defines all HTTP routes, 
+ * authentication middleware, CORS policies, and Dashboard APIs.
+ */
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { timingSafeEqual } from 'crypto';
@@ -77,9 +82,27 @@ app.get('/v1/models', (c) => {
   });
 });
 
+import { getConnInfo } from '@hono/node-server/conninfo';
+
 // --------------------------------------------------------------------
 // Dashboard GUI Routes (Zero-Terminal)
 // --------------------------------------------------------------------
+
+const requireLocalhost = async (c: any, next: any) => {
+  try {
+    const conn = getConnInfo(c);
+    const ip = conn.remote.address;
+    if (ip !== '127.0.0.1' && ip !== '::1') {
+      return c.text('Forbidden: Dashboard is locked to localhost for security.', 403);
+    }
+  } catch (e) {
+    return c.text('Forbidden: Unable to verify IP', 403);
+  }
+  await next();
+};
+
+app.use('/', requireLocalhost);
+app.use('/api/dashboard/*', requireLocalhost);
 
 app.get('/', (c) => {
   try {

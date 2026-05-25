@@ -1,18 +1,21 @@
-import { OpenAIRequest, Message, ToolCall, Usage } from '../types/index.ts';
+import { OpenAIRequest, Message, ToolCall, Usage, FunctionToolDefinition, ChoiceDelta, Choice, ChatCompletionChunk, ParsedToolCall } from '../types/index.ts';
 import { robustParseJSON } from './json.ts';
 
 export const TOOL_START = '<tool_call>';
 export const TOOL_END = '</tool_call>';
 export const TOOL_OPEN_RE = /<tool_call\b[^>]*>/i;
 
-export function messageContentToString(content: any): string {
+/**
+ * Converts message content (string or array of parts) into a single string.
+ */
+export function messageContentToString(content: unknown): string {
   if (Array.isArray(content)) {
     return content.map((c: any) => c.text || JSON.stringify(c)).join('\n');
   }
   if (typeof content === 'object' && content !== null) {
     return JSON.stringify(content);
   }
-  return content || '';
+  return typeof content === 'string' ? content : '';
 }
 
 export function serializeOpenAIMessages(messages: Message[]) {
@@ -59,13 +62,15 @@ export function serializeOpenAIMessages(messages: Message[]) {
   return { prompt, systemPrompt };
 }
 
+/**
+ * Appends tool definitions and instructions to the system prompt.
+ */
 export function appendToolInstructions(systemPrompt: string, body: OpenAIRequest): string {
-  const bodyAny = body as any;
-  if (!bodyAny.tools || !Array.isArray(bodyAny.tools) || bodyAny.tools.length === 0) {
+  if (!body.tools || !Array.isArray(body.tools) || body.tools.length === 0) {
     return systemPrompt;
   }
 
-  const formattedTools = bodyAny.tools.map((t: any) => {
+  const formattedTools = body.tools.map((t: FunctionToolDefinition) => {
     if (t.type === 'function') {
       return {
         name: t.function.name,
@@ -79,8 +84,8 @@ export function appendToolInstructions(systemPrompt: string, body: OpenAIRequest
 
   systemPrompt += `\n\n# TOOLS AVAILABLE\nYou have access to the following tools:\n${toolsJson}\n\nTo use a tool, you MUST output a JSON object wrapped EXACTLY in these tags:\n<tool_call>\n{"name": "tool_name", "arguments": {"param_name": "value"}}\n</tool_call>\n\nRULES:\n1. You can call multiple tools by outputting multiple <tool_call> blocks consecutively.\n2. Do NOT output any other text after your <tool_call> blocks. Wait for the user to provide the tool response.\n3. The JSON must be valid and accurately follow the tool's parameters.\n\n`;
 
-  if (bodyAny.tool_choice && typeof bodyAny.tool_choice === 'object' && bodyAny.tool_choice.function) {
-    const forcedTool = bodyAny.tool_choice.function.name;
+  if (body.tool_choice && typeof body.tool_choice === 'object' && body.tool_choice.type === 'function' && body.tool_choice.function) {
+    const forcedTool = body.tool_choice.function.name;
     systemPrompt += `CRITICAL: You MUST call the tool "${forcedTool}" in this response.\n\n`;
   }
 
@@ -119,25 +124,25 @@ export function extractToolName(openTag: string, block: string): string {
   return '';
 }
 
-export function inferToolNameFromParameters(args: Record<string, unknown>, tools: any[]): string {
+export function inferToolNameFromParameters(args: Record<string, unknown>, tools: FunctionToolDefinition[]): string {
   const argKeys = Object.keys(args);
   if (argKeys.length === 0 || !Array.isArray(tools)) return '';
 
-  const matches = tools.filter((tool: any) => {
-    const fn = tool?.type === 'function' ? tool.function : tool?.function;
+  const matches = tools.filter((tool: FunctionToolDefinition) => {
+    const fn = tool.function;
     const properties = fn?.parameters?.properties || {};
     return argKeys.every(k => Object.prototype.hasOwnProperty.call(properties, k));
   });
 
   if (matches.length === 1) {
-    const fn = matches[0]?.type === 'function' ? matches[0].function : matches[0]?.function;
+    const fn = matches[0].function;
     return fn?.name || '';
   }
 
   return '';
 }
 
-export function parseXmlParameterToolCall(block: string, openTag: string, tools: any[]): any | null {
+export function parseXmlParameterToolCall(block: string, openTag: string, tools: FunctionToolDefinition[]): Partial<ParsedToolCall> | null {
   const args: Record<string, unknown> = {};
   const parameterRe = /<parameter\b[^>]*\bname\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/parameter>/gi;
   let match: RegExpExecArray | null;
@@ -153,11 +158,11 @@ export function parseXmlParameterToolCall(block: string, openTag: string, tools:
   return { name: toolName, arguments: args };
 }
 
-export function parseToolCallBlock(block: string, openTag: string, tools: any[]): any {
+export function parseToolCallBlock(block: string, openTag: string, tools: FunctionToolDefinition[]): Partial<ParsedToolCall> {
   const parsedXml = parseXmlParameterToolCall(block, openTag, tools);
   if (parsedXml) return parsedXml;
 
-  const parsedJson = robustParseJSON(block);
+  const parsedJson = robustParseJSON<Partial<ParsedToolCall>>(block);
   if (!parsedJson) throw new Error('Empty tool call');
 
   const attrToolName = extractToolName(openTag, block);
@@ -187,17 +192,16 @@ export function findPartialToolOpenIndex(buffer: string): number {
   return -1;
 }
 
-export function makeChoice(delta: any, finishReason: string | null = null) {
+export function makeChoice(delta: ChoiceDelta, finishReason: string | null = null): Choice {
   return {
     index: 0,
     delta,
-    logprobs: null,
     finish_reason: finishReason
   };
 }
 
-export function makeChunk(completionId: string, model: string, delta: any, finishReason: string | null = null, usage?: Usage) {
-  const chunk: any = {
+export function makeChunk(completionId: string, model: string, delta: ChoiceDelta, finishReason: string | null = null, usage?: Usage): ChatCompletionChunk {
+  const chunk: ChatCompletionChunk = {
     id: completionId,
     object: 'chat.completion.chunk',
     created: Math.floor(Date.now() / 1000),

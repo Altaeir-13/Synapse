@@ -4,7 +4,7 @@
  * Agent runtime state machine types
  */
 
-import type { Message, ParsedToolCall, ToolCallResult, FunctionToolDefinition, ToolPolicy } from '../../shared/types/openai.ts';
+import type { Message, ParsedToolCall, ToolCallResult, FunctionToolDefinition } from '../../shared/types/openai.ts';
 
 // ─── Agent Lifecycle States ──────────────────────────────────────────────────
 

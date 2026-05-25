@@ -14,11 +14,11 @@ start-deepsproxy.sh
 *.token
 .kimi-token
 
-# Cofre Criptografado (Vault)
-.env.enc
-*.enc
-
 # Temp and Test files
 scratch/
 *.mp4
 hugchat.py
+
+# Cofre Criptografado (Vault)
+.env.enc
+*.enc

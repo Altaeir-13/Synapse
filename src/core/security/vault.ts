@@ -8,6 +8,20 @@ const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
+export class VaultError extends Error {
+  constructor(message: string, public readonly code?: string, public readonly originalError?: unknown) {
+    super(message);
+    this.name = 'VaultError';
+  }
+}
+
+export class VaultDecryptionError extends VaultError {
+  constructor(originalError?: unknown) {
+    super('Decryption failed: Incorrect password or corrupted data', 'ERR_DECRYPTION_FAILED', originalError);
+    this.name = 'VaultDecryptionError';
+  }
+}
+
 function deriveKey(password: string, salt: Buffer): Buffer {
   return crypto.scryptSync(password, salt, 32);
 }
@@ -27,7 +41,7 @@ export function encryptBuffer(data: Buffer, password: string): Buffer {
 
 export function decryptBuffer(data: Buffer, password: string): Buffer {
   if (data.length < SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) {
-    throw new Error('Data is too short or corrupted');
+    throw new VaultError('Data is too short or corrupted', 'ERR_DATA_CORRUPTED');
   }
   
   let offset = 0;
@@ -42,8 +56,8 @@ export function decryptBuffer(data: Buffer, password: string): Buffer {
   
   try {
     return Buffer.concat([decipher.update(encrypted), decipher.final()]);
-  } catch (e) {
-    throw new Error('Decryption failed: Incorrect password or corrupted data');
+  } catch (e: unknown) {
+    throw new VaultDecryptionError(e);
   }
 }
 
@@ -55,7 +69,7 @@ export async function packAndEncryptDir(dirPath: string, destFile: string, passw
   const chunks: Buffer[] = [];
   
   for await (const chunk of tarStream) {
-    chunks.push(Buffer.from(chunk));
+    chunks.push(Buffer.from(chunk as Uint8Array));
   }
   
   const archiveBuffer = Buffer.concat(chunks);
@@ -104,6 +118,15 @@ export function decryptEnvFile(srcFile: string, password: string): void {
 
 export function secureWipeDir(dirPath: string): void {
   if (fs.existsSync(dirPath)) {
-    fs.rmSync(dirPath, { recursive: true, force: true });
+    try {
+      fs.rmSync(dirPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 500 });
+    } catch (err: unknown) {
+      const e = err as NodeJS.ErrnoException;
+      if (e.code === 'EPERM' || e.code === 'EBUSY') {
+        console.warn(`[Vault] Warning: Gracefully ignoring locked directory ${dirPath}. It might be locked by another process (EPERM/EBUSY).`);
+      } else {
+        console.warn(`[Vault] Warning: Could not cleanly wipe directory ${dirPath}. Error: ${e.message}`);
+      }
+    }
   }
 }

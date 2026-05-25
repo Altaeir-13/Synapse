@@ -1,38 +1,13 @@
 import fs from 'fs';
 import path from 'path';
-import readline from 'readline';
 import { encryptBuffer, packAndEncryptDir, secureWipeDir } from '../core/security/vault.ts';
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-function askPassword(query: string): Promise<string> {
-  return new Promise((resolve) => {
-    // A simple approach to hide password
-    let hidden = false;
-    rl.question(query, (password) => {
-      hidden = false;
-      resolve(password);
-    });
-    hidden = true;
-    (rl as any)._writeToOutput = function _writeToOutput(stringToWrite: string) {
-      if (!hidden) {
-        (rl as any).output.write(stringToWrite);
-      } else {
-        (rl as any).output.write(stringToWrite.replace(/./g, '*'));
-      }
-    };
-  });
-}
+import { askPassword } from '../shared/utils/cli.ts';
 
 async function main() {
   console.log('--- DeepsProxy Security Vault Setup ---');
   console.log('This will encrypt your local data and delete the plaintext versions.');
   
   const password = await askPassword('Enter a strong Master Password: ');
-  rl.close();
   
   if (!password || password.length < 4) {
     console.error('\nPassword must be at least 4 characters long.');

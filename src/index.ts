@@ -1,16 +1,30 @@
+/**
+ * @file index.ts
+ * @description Application Entrypoint. Bootstraps the environment, unlocks the Vault,
+ * initializes requested providers, and starts the Hono HTTP server.
+ */
 import { serve } from '@hono/node-server';
 import * as dotenv from 'dotenv';
 import { getProvider } from './providers/index.ts';
 import { app } from './app.ts';
 import { fileURLToPath } from 'url';
 import { decryptEnvFile, secureWipeDir } from './core/security/vault.ts';
-import readline from 'readline';
 import fs from 'fs';
 import path from 'path';
 import open from 'open';
 import os from 'os';
+import { askPassword } from './shared/utils/cli.ts';
 
 dotenv.config();
+import crypto from 'crypto';
+
+if (!process.env.API_KEY) {
+  process.env.API_KEY = 'sk-' + crypto.randomBytes(24).toString('hex');
+  console.warn('\n[!] WARNING: No API_KEY was found in environment.');
+  console.warn(`[!] A secure API Key was auto-generated for this session:\n`);
+  console.warn(`    ${process.env.API_KEY}\n`);
+  console.warn(`[!] To make this permanent, add API_KEY=... to your .env file.\n`);
+}
 
 (globalThis as any)._vaultPassword = process.env.DEEPSPROXY_PASSWORD || '';
 
@@ -33,30 +47,10 @@ async function ensureVaultUnlocked() {
     return;
   }
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  return new Promise<void>((resolve) => {
-    let hidden = false;
-    rl.question('Enter Vault Master Password: ', (password) => {
-      hidden = false;
-      (globalThis as any)._vaultPassword = password;
-      if (hasEnvEnc) decryptEnvFile(envEncPath, password);
-      console.log('\nVault unlocked!');
-      rl.close();
-      resolve();
-    });
-    hidden = true;
-    (rl as any)._writeToOutput = function _writeToOutput(stringToWrite: string) {
-      if (!hidden) {
-        (rl as any).output.write(stringToWrite);
-      } else {
-        (rl as any).output.write(stringToWrite.replace(/./g, '*'));
-      }
-    };
-  });
+  const password = await askPassword('Enter Vault Master Password: ');
+  (globalThis as any)._vaultPassword = password;
+  if (hasEnvEnc) decryptEnvFile(envEncPath, password);
+  console.log('\nVault unlocked!');
 }
 
 ensureVaultUnlocked().then(() => {
@@ -67,14 +61,14 @@ ensureVaultUnlocked().then(() => {
       try {
         const p = getProvider(pid);
         await p.init();
-        console.log(`[Init] Provider '${pid}' initialized.`);
+        console.log(`[Server] Provider '${pid}' initialized.`);
       } catch (e: any) {
-        console.warn(`[Init] Could not initialize provider '${pid}': ${e.message}`);
+        console.warn(`[Server] Could not initialize provider '${pid}': ${e.message}`);
       }
     })).then(() => {
       const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
       const hostname = process.env.HOST || '127.0.0.1';
-      console.log(`Server is running on http://${hostname}:${port}`);
+      console.log(`[Server] Running on http://${hostname}:${port}`);
 
       serve({
         fetch: app.fetch,
@@ -84,10 +78,10 @@ ensureVaultUnlocked().then(() => {
 
       // Auto-open browser for GUI Dashboard
       if (!process.env.NO_OPEN) {
-        open(`http://${hostname}:${port}/`).catch(err => console.error('Could not open browser:', err));
+        open(`http://${hostname}:${port}/`).catch(err => console.error('[Server] Could not open browser:', err));
       }
     }).catch((err: any) => {
-      console.error('Failed to initialize server:', err);
+      console.error('[Server] Failed to initialize:', err);
       process.exit(1);
     });
   }

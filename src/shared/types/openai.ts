@@ -90,7 +90,7 @@ export interface OpenAIRequest {
 
 // ─── Streaming Response ────────────────────────────────────────────────────────
 
-export interface ToolCallDelta {
+export interface ToolCall {
   index: number;
   id?: string;
   type: string;
@@ -99,6 +99,8 @@ export interface ToolCallDelta {
     arguments: string;
   };
 }
+
+export type ToolCallDelta = ToolCall;
 
 export interface ChoiceDelta {
   role?: string;

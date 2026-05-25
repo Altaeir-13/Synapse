@@ -6,7 +6,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { ParsedToolCall, ToolCallResult, ToolContext } from './types.ts';
+import type { ParsedToolCall, ToolCallResult, ToolExecutionContext as ToolContext, Message } from '../shared/types/openai.ts';
 import { SchemaValidationError } from './schema.ts';
 import { registry } from './registry.ts';
 import { robustParseJSON } from '../shared/utils/json.ts';
@@ -14,6 +14,7 @@ import { robustParseJSON } from '../shared/utils/json.ts';
 export interface ExecutionLoopConfig {
   maxTurns?: number;
   debug?: boolean;
+  state?: Record<string, unknown>;
 }
 
 export interface LoopTurnResult {
@@ -25,7 +26,7 @@ export interface LoopTurnResult {
 }
 
 export type LLMSendFunction = (
-  messages: unknown[],
+  messages: Message[],
   tools: unknown[] | undefined,
   model: string
 ) => Promise<LLMResponse>;
@@ -67,14 +68,14 @@ export function parseToolCallsFromContent(content: string): {
       .trim();
 
     try {
-      const parsed = robustParseJSON(jsonStr);
+      const parsed = robustParseJSON<Partial<ParsedToolCall>>(jsonStr);
       if (!parsed) throw new Error('Empty tool call');
       
       toolCalls.push({
         id: 'call_' + uuidv4(),
         name: parsed.name || '',
         arguments: typeof parsed.arguments === 'string'
-          ? robustParseJSON(parsed.arguments)
+          ? (robustParseJSON<Record<string, unknown>>(parsed.arguments) || {})
           : (parsed.arguments || {}),
       });
     } catch (e) {
@@ -131,7 +132,7 @@ export async function executeToolCalls(
   return results;
 }
 
-function buildToolMessage(result: ToolCallResult): Record<string, unknown> {
+function buildToolMessage(result: ToolCallResult): Message {
   return {
     role: 'tool',
     tool_call_id: result.toolCallId,
@@ -142,7 +143,7 @@ function buildToolMessage(result: ToolCallResult): Record<string, unknown> {
 function buildAssistantToolCallMessage(
   content: string | null,
   toolCalls: ParsedToolCall[]
-): Record<string, unknown> {
+): Message {
   return {
     role: 'assistant',
     content: content || null,
@@ -161,7 +162,7 @@ function buildAssistantToolCallMessage(
 
 export async function runExecutionLoop(
   sendToLLM: LLMSendFunction,
-  messages: unknown[],
+  messages: Message[],
   model: string,
   config: ExecutionLoopConfig = {}
 ): Promise<string> {
@@ -177,7 +178,14 @@ export async function runExecutionLoop(
       console.log(`[executor] Turn ${turn + 1}/${maxTurns}, messages: ${messages.length}`);
     }
 
-    const response = await sendToLLM(messages, tools, model);
+    let response: LLMResponse;
+    try {
+      response = await sendToLLM(messages, tools, model);
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      console.error(`[executor] LLM error during turn ${turn + 1}:`, e.message);
+      throw new Error(`LLM Error: ${e.message}`);
+    }
 
     const hasStructuredToolCalls = response.toolCalls && response.toolCalls.length > 0;
     let parsedFromContent: { textContent: string; toolCalls: ParsedToolCall[] } | null = null;
@@ -205,6 +213,7 @@ export async function runExecutionLoop(
       messages,
       turn,
       model,
+      state: config.state || {},
     };
 
     if (debug) {

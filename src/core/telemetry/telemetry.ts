@@ -72,3 +72,82 @@ export function recordFailure(model: string, promptSize: number): void {
   
   console.log(`[Telemetry] Recorded failure for model '${model}'. Prompt size: ${promptSize} chars. Estimated context limit reduced to: ${stats.detectedLimit} chars (~${Math.ceil(stats.detectedLimit / 3.5)} tokens).`);
 }
+
+export interface RunMetrics {
+  runId: string;
+  model: string;
+  startTime: number;
+  endTime?: number;
+  totalTokens: number;
+  totalTurns: number;
+  toolCalls: number;
+  success: boolean;
+  error?: string;
+}
+
+export class ExecutionTelemetryTracker {
+  private static instance: ExecutionTelemetryTracker;
+  private activeRuns = new Map<string, RunMetrics>();
+  private completedRuns: RunMetrics[] = [];
+
+  private constructor() {}
+
+  public static getInstance(): ExecutionTelemetryTracker {
+    if (!ExecutionTelemetryTracker.instance) {
+      ExecutionTelemetryTracker.instance = new ExecutionTelemetryTracker();
+    }
+    return ExecutionTelemetryTracker.instance;
+  }
+
+  public startRun(runId: string, model: string) {
+    this.activeRuns.set(runId, {
+      runId,
+      model,
+      startTime: Date.now(),
+      totalTokens: 0,
+      totalTurns: 0,
+      toolCalls: 0,
+      success: false,
+    });
+  }
+
+  public recordTurn(runId: string, tokens: number, toolCalls: number) {
+    const run = this.activeRuns.get(runId);
+    if (run) {
+      run.totalTurns++;
+      run.totalTokens += tokens;
+      run.toolCalls += toolCalls;
+    }
+  }
+
+  public endRun(runId: string, success: boolean, error?: string) {
+    const run = this.activeRuns.get(runId);
+    if (run) {
+      run.endTime = Date.now();
+      run.success = success;
+      if (error) run.error = error;
+      
+      this.completedRuns.push(run);
+      this.activeRuns.delete(runId);
+      
+      console.log(`[Telemetry] Run ${runId} ended. Success: ${success}, Duration: ${run.endTime - run.startTime}ms, Turns: ${run.totalTurns}, Tools: ${run.toolCalls}`);
+    }
+  }
+
+  public getRunMetrics(runId: string): RunMetrics | undefined {
+    return this.activeRuns.get(runId) || this.completedRuns.find(r => r.runId === runId);
+  }
+
+  public getMetricsSummary() {
+    const totalRuns = this.completedRuns.length;
+    const successfulRuns = this.completedRuns.filter(r => r.success).length;
+    return {
+      totalRuns,
+      successfulRuns,
+      failedRuns: totalRuns - successfulRuns,
+      averageTurns: totalRuns ? this.completedRuns.reduce((acc, r) => acc + r.totalTurns, 0) / totalRuns : 0,
+      averageTokens: totalRuns ? this.completedRuns.reduce((acc, r) => acc + r.totalTokens, 0) / totalRuns : 0,
+    };
+  }
+}
+

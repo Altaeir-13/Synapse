@@ -1,7 +1,12 @@
-import { Provider, ParsedCompletion, EmitChunk } from './base.ts';
+/**
+ * @file deepseek.ts
+ * @description Implementation of the DeepSeek provider for interacting with DeepSeek's AI endpoints.
+ * Inherits from `BaseProvider` to standardize browser interactions via Playwright.
+ */
+import { BaseProvider, ParsedCompletion, EmitChunk } from './base.ts';
 import { OpenAIRequest, ToolCall, ChoiceDelta, Usage } from '../shared/types/index.ts';
 import { getActivePage, getProviderMutex, ensurePlaywright } from './playwright.ts';
-import { getModelTelemetry, recordSuccess, recordFailure } from '../core/telemetry/telemetry.ts';
+
 import { v4 as uuidv4 } from 'uuid';
 import {
   makeChunk,
@@ -24,7 +29,7 @@ export function updateSessionParent(sessionId: string, parentId: number | null) 
   }
 }
 
-export class DeepSeekProvider implements Provider {
+export class DeepSeekProvider extends BaseProvider {
   readonly id = 'deepseek';
 
   async init(): Promise<void> {

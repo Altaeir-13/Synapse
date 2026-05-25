@@ -1,11 +1,11 @@
-import { Provider } from './base.ts';
+import { BaseProvider } from './base.ts';
 import { DeepSeekProvider } from './deepseek.ts';
 import { HuggingFaceProvider } from './huggingface.ts';
 import { KimiProvider } from './kimi.ts';
 import { GLMProvider } from './glm.ts';
 import { MiMoProvider } from './mimo.ts';
 
-const providers: Record<string, Provider> = {
+const providers: Record<string, BaseProvider> = {
   deepseek: new DeepSeekProvider(),
   huggingface: new HuggingFaceProvider(),
   kimi: new KimiProvider(),
@@ -13,13 +13,13 @@ const providers: Record<string, Provider> = {
   mimo: new MiMoProvider()
 };
 
-export function getProvider(id: string): Provider {
+export function getProvider(id: string): BaseProvider {
   const p = providers[id];
   if (!p) throw new Error(`Provider ${id} not found`);
   return p;
 }
 
-export function getProviderForModel(modelName: string): Provider {
+export function getProviderForModel(modelName: string): BaseProvider {
   const lower = modelName.toLowerCase();
   
   if (lower.includes('deepseek')) return providers.deepseek;
@@ -32,6 +32,6 @@ export function getProviderForModel(modelName: string): Provider {
   return providers.deepseek;
 }
 
-export function getAllProviders(): Provider[] {
+export function getAllProviders(): BaseProvider[] {
   return Object.values(providers);
 }

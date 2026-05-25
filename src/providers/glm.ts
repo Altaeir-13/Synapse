@@ -1,9 +1,9 @@
-import { Provider, ParsedCompletion, EmitChunk } from './base.ts';
+import { BaseProvider, ParsedCompletion, EmitChunk } from './base.ts';
 import { getActivePage, ensurePlaywright } from './playwright.ts';
 import { makeChunk } from '../shared/utils/stream-utils.ts';
 import { OpenAIRequest, Usage } from '../shared/types/index.ts';
 
-export class GLMProvider implements Provider {
+export class GLMProvider extends BaseProvider {
   id = 'glm';
   private cachedHeaders: Record<string, string> | null = null;
   private refreshPromise: Promise<void> | null = null;

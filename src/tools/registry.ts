@@ -52,6 +52,8 @@ export class ToolRegistry {
       strict,
       handler,
     });
+    
+    console.log(`[ToolRegistry] Registered tool: '${name}'`);
   }
 
   /**

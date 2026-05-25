@@ -6,14 +6,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { Mutex } from '../shared/utils/mutex.ts';
 import { decryptAndUnpackDir, packAndEncryptDir, secureWipeDir } from '../core/security/vault.ts';
 
-const contexts: Record<string, BrowserContext> = {};
-const activePages: Record<string, Page> = {};
-const mutexes: Record<string, Mutex> = {};
-const activeTempDirs: Record<string, string> = {};
+interface ProviderPlaywrightState {
+  context: BrowserContext;
+  page: Page;
+  mutex: Mutex;
+  tempDir?: string;
+}
+
+const providerStates: Record<string, ProviderPlaywrightState> = {};
 
 export async function initPlaywright(providerId: string, headless = true) {
   if (process.env.TEST_MOCK_PLAYWRIGHT) return;
-  if (contexts[providerId]) {
+  if (providerStates[providerId]) {
     return;
   }
 
@@ -22,14 +26,14 @@ export async function initPlaywright(providerId: string, headless = true) {
   const localProfile = path.resolve(`${providerId}_profile`);
   
   let profilePath: string;
+  let tempDir: string | undefined;
 
   if (fs.existsSync(encryptedProfile)) {
     if (!password) throw new Error(`Vault password required to decrypt ${providerId}_profile.enc`);
-    const tempDir = path.join(os.tmpdir(), `deepsproxy_profile_${uuidv4()}`);
+    tempDir = path.join(os.tmpdir(), `deepsproxy_profile_${uuidv4()}`);
     console.log(`[Vault] Decrypting ${providerId} profile to temporary secure memory...`);
     await decryptAndUnpackDir(encryptedProfile, tempDir, password);
     profilePath = path.join(tempDir, `${providerId}_profile`);
-    activeTempDirs[providerId] = tempDir;
   } else {
     profilePath = localProfile;
   }
@@ -41,8 +45,6 @@ export async function initPlaywright(providerId: string, headless = true) {
       '--disable-blink-features=AutomationControlled',
       '--exclude-switches=enable-automation',
       '--disable-infobars',
-      // Sandbox is enabled for maximum security.
-      // If running in Docker, run the container with --cap-add=SYS_ADMIN.
       '--disable-dev-shm-usage',
       '--disable-gpu',
     ],
@@ -55,7 +57,6 @@ export async function initPlaywright(providerId: string, headless = true) {
     try {
       context = await chromium.launchPersistentContext(profilePath, { ...launchOptions, channel: 'msedge' });
     } catch (e2) {
-      // Fallback to downloaded playwright chromium if both fail
       context = await chromium.launchPersistentContext(profilePath, launchOptions);
     }
   }
@@ -63,56 +64,62 @@ export async function initPlaywright(providerId: string, headless = true) {
   // Handle unexpected closures to self-heal
   context.on('close', async () => {
     console.warn(`[Playwright] Context for provider '${providerId}' closed unexpectedly. Cleaning up.`);
-    if (activeTempDirs[providerId] && password) {
+    const state = providerStates[providerId];
+    if (state?.tempDir && password) {
       try {
-        await packAndEncryptDir(path.join(activeTempDirs[providerId], `${providerId}_profile`), path.resolve(`${providerId}_profile.enc`), password);
-        secureWipeDir(activeTempDirs[providerId]);
+        await packAndEncryptDir(path.join(state.tempDir, `${providerId}_profile`), path.resolve(`${providerId}_profile.enc`), password);
+        secureWipeDir(state.tempDir);
       } catch (e) { console.error('Failed to encrypt profile on crash:', e); }
     }
-    delete contexts[providerId];
-    delete activePages[providerId];
-    delete activeTempDirs[providerId];
+    delete providerStates[providerId];
   });
 
-  contexts[providerId] = context;
-  activePages[providerId] = await context.newPage();
-  mutexes[providerId] = new Mutex();
+  providerStates[providerId] = {
+    context,
+    page: await context.newPage(),
+    mutex: new Mutex(),
+    tempDir,
+  };
 }
 
 export async function closePlaywright(providerId: string) {
   if (process.env.TEST_MOCK_PLAYWRIGHT) return;
-  const context = contexts[providerId];
-  if (context) {
-    await context.close();
+  const state = providerStates[providerId];
+  if (state) {
+    await state.context.close();
     
     const password = (globalThis as any)._vaultPassword;
-    if (activeTempDirs[providerId] && password) {
+    if (state.tempDir && password) {
       console.log(`[Vault] Re-encrypting and securely wiping ${providerId} profile...`);
-      const profilePath = path.join(activeTempDirs[providerId], `${providerId}_profile`);
+      const profilePath = path.join(state.tempDir, `${providerId}_profile`);
       await packAndEncryptDir(profilePath, path.resolve(`${providerId}_profile.enc`), password);
-      secureWipeDir(activeTempDirs[providerId]);
+      secureWipeDir(state.tempDir);
     }
     
-    delete contexts[providerId];
-    delete activePages[providerId];
-    delete mutexes[providerId];
-    delete activeTempDirs[providerId];
+    delete providerStates[providerId];
   }
 }
 
 export function getActivePage(providerId: string): Page | null {
-  return activePages[providerId] || null;
+  return providerStates[providerId]?.page || null;
 }
 
 export function getProviderMutex(providerId: string): Mutex {
-  if (!mutexes[providerId]) {
-    mutexes[providerId] = new Mutex();
+  let state = providerStates[providerId];
+  if (!state) {
+    // If initPlaywright was bypassed by mocks, we still might need a mutex
+    state = {
+      context: {} as BrowserContext,
+      page: {} as Page,
+      mutex: new Mutex(),
+    };
+    providerStates[providerId] = state;
   }
-  return mutexes[providerId];
+  return state.mutex;
 }
 
 export async function ensurePlaywright(providerId: string, headless = true) {
-  if (!contexts[providerId]) {
+  if (!providerStates[providerId] || (!providerStates[providerId].context && !process.env.TEST_MOCK_PLAYWRIGHT)) {
     await initPlaywright(providerId, headless);
   }
 }

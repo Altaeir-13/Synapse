@@ -1,10 +1,10 @@
-import { Provider, ParsedCompletion, EmitChunk } from './base.ts';
+import { BaseProvider, ParsedCompletion, EmitChunk } from './base.ts';
 import { OpenAIRequest, ToolCall, ChoiceDelta, Usage } from '../shared/types/index.ts';
 import { getActivePage, getProviderMutex, ensurePlaywright } from './playwright.ts';
 import { v4 as uuidv4 } from 'uuid';
 import { makeChunk } from '../shared/utils/stream-utils.ts';
 
-export class HuggingFaceProvider implements Provider {
+export class HuggingFaceProvider extends BaseProvider {
   readonly id = 'huggingface';
 
   async init(): Promise<void> {
@@ -123,7 +123,7 @@ export class HuggingFaceProvider implements Provider {
       tools: []
     }));
 
-    const chatHeaders = { ...headers, 'referer': `https://huggingface.co/chat/conversation/${convId}` };
+    const chatHeaders: Record<string, string> = { ...headers, 'referer': `https://huggingface.co/chat/conversation/${convId}` };
     delete chatHeaders['content-type']; // let FormData set multipart boundary
 
     const response = await fetch(`https://huggingface.co/chat/conversation/${convId}`, {

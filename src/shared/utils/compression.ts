@@ -7,8 +7,18 @@
 import { Message } from '../types/index.ts';
 
 /**
- * Compresses the messages list to ensure the resulting serialized prompt length 
- * is strictly under targetLimit characters.
+ * Compresses an array of OpenAI messages to ensure the resulting serialized prompt 
+ * length is strictly under the specified character limit.
+ * 
+ * It attempts to compress using the following strategies:
+ * 1. Progressively removing older conversational history.
+ * 2. Truncating individual large message contents.
+ * 3. Extreme fallback truncation.
+ * 
+ * @param messages - The original array of messages.
+ * @param targetLimit - The maximum allowed character length.
+ * @param serializeFn - A function that serializes messages into a string representation.
+ * @returns A new array of compressed messages.
  */
 export function compressMessages(
   messages: Message[],

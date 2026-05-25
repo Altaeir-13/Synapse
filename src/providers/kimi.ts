@@ -1,4 +1,4 @@
-import { Provider, ParsedCompletion, EmitChunk } from './base.ts';
+import { BaseProvider, ParsedCompletion, EmitChunk } from './base.ts';
 import { getActivePage, ensurePlaywright } from './playwright.ts';
 import { v4 as uuidv4 } from 'uuid';
 import { makeChunk } from '../shared/utils/stream-utils.ts';
@@ -6,7 +6,7 @@ import { OpenAIRequest, Usage, ToolCall } from '../shared/types/index.ts';
 import fs from 'fs';
 import path from 'path';
 
-export class KimiProvider implements Provider {
+export class KimiProvider extends BaseProvider {
   id = 'kimi';
   
   async init(): Promise<void> {

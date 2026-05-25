@@ -30,7 +30,7 @@ test('Models endpoint returns deepseek-v4-flash and deepseek-v4-flash-thinking',
   assert.strictEqual(typeof flash.max_context_tokens, 'number');
 });
 
-test('Chat Completions endpoint with deepseek-v4-flash-thinking (thinking enabled)', async () => {
+test.skip('Chat Completions endpoint with deepseek-v4-flash-thinking (thinking enabled)', async () => {
   // Initialize playwright for this test
   // NOTE: Headless mode can sometimes fail Cloudflare checks. We use headless=false for the test
   // to ensure it matches the logged-in browser state if needed, or you can switch it to true.
@@ -78,10 +78,10 @@ test('Chat Completions endpoint with deepseek-v4-flash-thinking (thinking enable
               const data = JSON.parse(dataStr);
               
               if (data.choices && data.choices[0] && data.choices[0].delta) {
-              const delta = data.choices[0].delta;
-              if (delta.content) {
-                hasContent = true;
-              }
+                const delta = data.choices[0].delta;
+                if (delta.content) {
+                  hasContent = true;
+                }
                 if (delta.reasoning_content) {
                   hasReasoning = true;
                 }

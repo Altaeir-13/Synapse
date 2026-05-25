@@ -4,7 +4,16 @@
  * Robust JSON parsing utilities
  */
 
-export function robustParseJSON(str: string): any {
+/**
+ * Parses a JSON string robustly, attempting to fix common structural errors 
+ * such as missing closing braces or trailing commas. It also strips out 
+ * markdown code blocks if the LLM outputted them.
+ * 
+ * @param str - The raw JSON string from the LLM.
+ * @returns The parsed JSON object of type T or null if invalid.
+ * @throws If parsing completely fails even after aggressive fixes.
+ */
+export function robustParseJSON<T = unknown>(str: string): T | null {
   let sanitized = str.trim();
   
   // Remove markdown code blocks if present

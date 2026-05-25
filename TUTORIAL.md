@@ -18,7 +18,10 @@ Agora, no terminal, digite os dois comandos abaixo (um de cada vez) e espere ter
 
 ```bash
 npm install
+npx playwright install
 ```
+
+*O primeiro baixa os pacotes básicos, e o segundo instala o navegador "fantasma" que a ferramenta usa para burlar os bloqueios e falar com as IAs.*
 
 ---
 

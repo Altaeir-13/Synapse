@@ -11,8 +11,8 @@ Proxy API local compatível com OpenAI que roteia requisições para modelos Dee
 ---
 
 > [!TIP]
-> **🚀 Novo por aqui ou não é programador?** 
-> Preparamos um guia passo a passo com imagens e painel visual para você. **[Clique aqui para ler o Tutorial de Iniciantes (TUTORIAL.md)](./TUTORIAL.md)**.
+> **🚀 Quer apenas usar o sistema de forma fácil?** 
+> A documentação abaixo é focada na arquitetura e desenvolvimento do projeto. Se você quer apenas instalar e usar, preparamos um guia passo a passo com painel visual. **[Clique aqui para ler o Tutorial de Iniciantes (TUTORIAL.md)](./TUTORIAL.md)**.
 
 ---
 
@@ -27,27 +27,26 @@ Esta versão transformou a ferramenta focada em DeepSeek em um gateway multi-pro
 
 - **🤖 Suporte Multi-Modelos**: Integramos suporte nativo para **Kimi (Moonshot)**, **GLM (Zhipu)**, **HuggingFace** e **MiMo (Xiaomi)** trabalhando paralelamente ao DeepSeek.
 - **🏗️ Arquitetura Domain-Driven (DDD)**: O código-fonte foi completamente reorganizado. Saímos de uma estrutura plana para uma separação limpa em domínios (`api/`, `core/`, `providers/`, `shared/` e `tools/`), adotando padrões de nível Enterprise.
-- **🔒 Segurança e Isolamento Aprimorados**: Regras rígidas adicionadas ao `.gitignore` e reposicionamento de artefatos temporários para garantir que cookies de sessão do Playwright e tokens nunca vazem no GitHub.
-- **⚙️ Tipagem Estrita**: Refatoramos e unificamos todas as interfaces TypeScript (ex: `ParsedCompletion`, `Provider`) para assegurar 100% de compatibilidade e segurança de tipos nas respostas da OpenAI API spec em todos os provedores.
+- **🔒 Segurança e Isolamento Aprimorados**: Adicionado um sistema de "Vault" criptografado e bloqueios de IP para prevenir vazamento de credenciais.
 
 ---
 
 ## ✨ Features
 
 - **OpenAI API Compatible**: Interface compatível com `/v1/chat/completions` e `/v1/models`
-- **Tool Execution**: Sistema de ferramentas executáveis via Playwright
+- **Tool Execution**: Sistema de ferramentas executáveis nativamente via Playwright
 - **Session Persistence**: Login persistente com armazenamento de perfil do navegador
-- **Authentication**: Suporte opcional a API Key via header `Authorization` ou `X-API-Key`
 - **Type-Safe**: Código 100% TypeScript com strict mode
-- **Docker Ready**: Deploy simplificado com Docker Compose
 
 ---
 
-## 🏗️ Arquitetura
+## 🏗️ Arquitetura do Sistema
+
+O DeepsProxy atua como uma ponte (bridge) entre ferramentas que falam a linguagem da OpenAI (como Cursor, Cline, etc) e as interfaces web (chat) das inteligências artificiais.
 
 ```mermaid
 graph TD
-    Client["Cliente OpenAI/SDK"] -->|HTTPS| Proxy["DeepsProxy"]
+    Client["Cliente OpenAI/SDK"] -->|HTTPS| Proxy["DeepsProxy API"]
     Proxy -->|"Router /v1/chat"| Engine["Core Engine"]
     
     subgraph "Vault (Segurança AES-256-GCM)"
@@ -74,295 +73,41 @@ graph TD
     Providers -->|"Node Fetch (Seguro/Isolado)"| APIExterna["APIs de IA (Web)"]
 ```
 
+O fluxo ocorre da seguinte forma:
+1. A requisição chega na API (Hono) no formato OpenAI.
+2. O Core Engine identifica qual o provedor desejado (ex: `deepseek-v4-flash`).
+3. O provedor solicita ao Playwright que recupere os cookies e os headers de autenticação da sessão do usuário salva no disco.
+4. O provedor traduz a requisição para o formato proprietário da IA e faz a chamada via `fetch` direto na API interna do site da IA (não usando o navegador para digitar texto, o que garante altíssima velocidade e suporte a streaming real).
+
+---
+
+## 🔒 Segurança e Privacidade (Hardening)
+
+Como o sistema lida com os cookies de sessão pessoais do usuário, ele foi desenhado com uma abordagem "Seguro por Padrão" (Fail-Secure).
+
+### 1. O Cofre Criptografado (Vault)
+Perfis de navegador (`*_profile`) contêm tokens sensíveis de acesso. Para permitir o versionamento seguro e proteger contra malwares locais:
+- O sistema possui um comando utilitário (`npm run setup-vault`) que empacota e criptografa a pasta do navegador e o `.env` usando o algoritmo **AES-256-GCM** atrelado a uma Senha Mestra.
+- O projeto ignora (`.gitignore`) as pastas descriptografadas. Apenas os arquivos `.enc` criptografados permanecem.
+- Na inicialização, a senha mestra é solicitada e o cofre é aberto **apenas na memória RAM temporária do SO** (`os.tmpdir()`), sendo ejetado ao desligar o servidor.
+
+### 2. Bloqueio de Rede do Dashboard (Localhost-Only)
+O servidor possui um Dashboard gráfico. Para evitar que espiões na mesma rede Wi-Fi local acessem o painel e roubem a senha mestra durante a digitação:
+- O sistema possui um *middleware* que bloqueia sumariamente (HTTP 403) qualquer requisição ao Dashboard `/` e `/api/dashboard/*` que não tenha como origem estritamente `127.0.0.1` ou `::1`.
+
+### 3. Geração Automática de API Key (Fail-Secure API)
+Se o usuário esquecer de configurar uma `API_KEY` para proteger os endpoints da OpenAI (`/v1/chat/completions`), a API **não** ficará aberta. Na ausência de chave configurada, o motor gera automaticamente uma chave criptograficamente segura de 48 bytes e trava o servidor com ela.
+
 ---
 
 ## 📋 Pré-requisitos
 
-| Dependência | Versão Mínima | Instalação |
-|------------|--------------|-----------|
-| Node.js | v20.x | [nvm](https://github.com/nvm-sh/nvm) |
-| npm | v9.x | Incluído com Node.js |
-| Playwright | - | `npx playwright install` |
-| Docker (opcional) | v24.x | [Docker Docs](https://docs.docker.com/get-docker/) |
-
----
-
-## 🚀 Instalação
-
-### Via npm
-
-```bash
-# Clonar repositório
-git clone https://github.com/pedrofariasx/deepsproxy.git
-cd deepsproxy
-
-# Instalar dependências
-npm install
-
-# Instalar browsers do Playwright
-npx playwright install
-```
-
-### Via Docker
-
-```bash
-# Build da imagem
-docker-compose build
-
-# Iniciar containers
-docker-compose up -d
-```
-
----
-
-## ⚙️ Configuração
-
-Você pode configurar o projeto através de um arquivo `.env` na raiz do projeto. 
-
-> [!TIP]
-> Se você não configurar uma `API_KEY` no seu `.env`, o sistema **não** ficará vulnerável. Na primeira vez que você iniciar, ele irá gerar automaticamente uma chave de 48 caracteres altamente segura e exibi-la no terminal para que você a salve.
-
-Exemplo de `.env`:
-```env
-# Porta do servidor (default: 3000)
-PORT=3000
-
-# Chave de API para proteger endpoints (Será gerada automaticamente se omitida)
-API_KEY=sua-chave-secreta-aqui
-
-# Provedores Ativos (ex: deepseek, kimi, glm, mimo, huggingface)
-ACTIVE_PROVIDERS=deepseek,huggingface
-
-# Configurações Playwright
-PLAYWRIGHT_HEADLESS=true
-PLAYWRIGHT_TIMEOUT=30000
-```
-
-> [!CAUTION]
-> **Vault de Segurança**: Após efetuar os logins (via Dashboard ou comando `npm run login`), você deve executar `npm run setup-vault` para criptografar seu `.env` e suas sessões do navegador em arquivos `.enc`. Isso protege suas chaves e cookies contra malwares e acessos não autorizados. Após rodar o setup, o `.env` em texto plano será excluído e você precisará digitar sua senha mestra sempre que iniciar o servidor. Seus arquivos criptografados não vazarão no GitHub graças às regras rígidas do `.gitignore`.
-
-### 🖥️ Dashboard (Interface Gráfica)
-O DeepsProxy agora possui um **Dashboard Local** para facilitar sua vida. 
-Ao iniciar o projeto com `npm start`, acesse `http://127.0.0.1:3000/` no seu navegador.
-Lá você poderá:
-- Ver o status do seu Servidor e do seu Cofre (Vault).
-- Realizar o Login em qualquer um dos provedores de IA apenas clicando em um botão (sem precisar usar o terminal).
-- Configurar a Senha Mestra do Vault.
-
-> [!NOTE]
-> Por questões rigorosas de segurança, o Dashboard possui uma trava de rede. Ele só pode ser acessado a partir de `127.0.0.1` (seu próprio computador). Requisições de outros IPs na sua rede serão sumariamente bloqueadas com `403 Forbidden` para evitar roubo da sua Senha Mestra.
-
-### Variáveis de Ambiente
-
-| Variável | Descrição | Default | Obrigatória |
-|----------|-----------|---------|------------|
-| `PORT` | Porta HTTP do servidor | `3000` | Não |
-| `API_KEY` | Chave para autenticação de requests | Gerada automaticamente | Não |
-| `PLAYWRIGHT_HEADLESS` | Executar browser em modo headless | `true` | Não |
-| `PLAYWRIGHT_TIMEOUT` | Timeout para operações do Playwright (ms) | `30000` | Não |
-
----
-
-## 🔐 Autenticação
-
-Se `API_KEY` estiver configurada, todas as requisições devem incluir uma das opções:
-
-```bash
-# Via Bearer Token
-curl -H "Authorization: Bearer sua-chave" http://localhost:3000/v1/chat/completions
-
-# Via X-API-Key header
-curl -H "X-API-Key: sua-chave" http://localhost:3000/v1/chat/completions
-```
-
-Resposta para autenticação falha:
-```json
-{ "error": "Unauthorized" }
-```
-Status: `401`
-
----
-
-## 📡 API Reference
-
-### Health Check
-
-```http
-GET /health
-```
-
-**Response** `200 OK`:
-```json
-{ "status": "ok" }
-```
-
----
-
-### List Models
-
-```http
-GET /v1/models
-```
-
-**Response** `200 OK`:
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "deepseek-v4-flash",
-      "object": "model",
-      "created": 1715616000,
-      "owned_by": "deepseek"
-    },
-    {
-      "id": "deepseek-v4-flash-thinking",
-      "object": "model",
-      "created": 1715616000,
-      "owned_by": "deepseek"
-    },
-    {
-      "id": "deepseek-v4-pro",
-      "object": "model",
-      "created": 1715616000,
-      "owned_by": "deepseek"
-    },
-    {
-      "id": "deepseek-v4-pro-thinking",
-      "object": "model",
-      "created": 1715616000,
-      "owned_by": "deepseek"
-    }
-  ]
-}
-```
-
----
-
-### Chat Completions
-
-```http
-POST /v1/chat/completions
-Content-Type: application/json
-```
-
-**Request Body**:
-```json
-{
-  "model": "deepseek-flash-thinking",
-  "messages": [
-    { "role": "user", "content": "Qual é a previsão do tempo?" }
-  ],
-  "tools": [
-    {
-      "type": "function",
-      "function": {
-        "name": "get_weather",
-        "description": "Obter previsão do tempo",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "location": { "type": "string" }
-          },
-          "required": ["location"]
-        }
-      }
-    }
-  ],
-  "tool_choice": "auto",
-  "stream": false
-}
-```
-
-**Response** `200 OK`:
-```json
-{
-  "id": "chatcmpl-xxx",
-  "object": "chat.completion",
-  "created": 1715616000,
-  "model": "deepseek-flash-thinking",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "A previsão para São Paulo é de 24°C com sol.",
-        "tool_calls": []
-      },
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 45,
-    "completion_tokens": 23,
-    "total_tokens": 68
-  }
-}
-```
-
----
-
-## 💻 Exemplos de Uso
-
-### cURL
-
-```bash
-curl http://localhost:3000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "deepseek-flash-thinking",
-    "messages": [{"role": "user", "content": "Olá!"}]
-  }'
-```
-
-### OpenAI SDK (Node.js)
-
-```typescript
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  baseURL: 'http://localhost:3000/v1',
-  apiKey: process.env.API_KEY || 'sk-no-key-required'
-});
-
-const completion = await openai.chat.completions.create({
-  model: 'deepseek-thinking',
-  messages: [{ role: 'user', content: 'Explique TypeScript' }]
-});
-
-console.log(completion.choices[0].message.content);
-```
-
-### Python (openai library)
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:3000/v1",
-    api_key="sk-no-key-required"
-)
-
-response = client.chat.completions.create(
-    model="deepseek-thinking",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-
-print(response.choices[0].message.content)
-```
-
----
-
-## 🔧 Comandos Disponíveis
-
-| Comando | Descrição |
-|---------|-----------|
-| `npm start` | Inicia o servidor e solicita a Senha Mestra do Vault |
-| `npm run setup-vault` | Criptografa o `.env` e pastas `*_profile/` para proteger dados contra malwares |
-| `npm run login:<provider>` | Executa fluxo de login (`ds`, `kimi`, `glm`, `mimo`, `hf`) |
-| `npm test` | Executa suite de testes |
-| `npm run build` | Compila TypeScript para `dist/` |
-| `npx playwright install` | Instala browsers para automação |
+| Dependência | Versão Mínima |
+|------------|--------------|
+| Node.js | v20.x |
+| npm | v9.x |
+| Playwright | Navegadores do Playwright |
+| Docker (opcional) | v24.x |
 
 ---
 
@@ -371,127 +116,72 @@ print(response.choices[0].message.content)
 ```
 deepsproxy/
 ├── src/
-│   ├── __tests__/           # Testes automatizados
-│   ├── api/                 # Rotas Web (Hono)
-│   ├── core/                # Motor principal e Vault (Segurança AES-256)
-│   ├── providers/           # Integrações LLM (DeepSeek, Kimi, GLM, etc.)
-│   ├── scripts/             # Scripts utilitários (Login, Setup Vault)
-│   ├── shared/              # Schemas e lógicas compartilhadas
-│   ├── tools/               # Registro e Parse de Tool Calls
-│   ├── app.ts               # Configuração global da API
-│   └── index.ts             # Boot do servidor
-├── docker-compose.yml       # Orquestração multi-container
-├── Dockerfile               # Imagem Docker otimizada
-├── tsconfig.json            # Configuração TypeScript
-├── package.json             # Dependências e scripts
+│   ├── __tests__/           # Testes automatizados da API e core
+│   ├── api/                 # Rotas Web compatíveis com OpenAI (Hono)
+│   ├── core/                # Motor principal, Telemetria e Vault (Segurança AES)
+│   ├── providers/           # Integrações LLM específicas (DeepSeek, Kimi, etc.)
+│   ├── scripts/             # Scripts utilitários de linha de comando
+│   ├── shared/              # Utilitários globais (CLI, compressão, parsers)
+│   ├── tools/               # Registro e Parse de Tool Calls estilo Hermes/OpenAI
+│   ├── app.ts               # Configuração global da API (Middlewares, CORS)
+│   └── index.ts             # Boot do servidor, geração de chaves e Vault
+├── docker-compose.yml       # Orquestração multi-container para deploy de fundo
+├── Dockerfile               # Imagem Docker otimizada com dependências Chromium
 ├── .env.enc                 # Cofre de Ambiente Criptografado (Vault)
 └── *_profile.enc            # Sessões de Navegador Criptografadas (Vault)
 ```
 
 ---
 
-## 🐳 Docker
+## 🔧 Lista de Comandos Principais
 
-### docker-compose.yml
+Embora o uso diário seja feito via Dashboard, a CLI expõe as seguintes ferramentas:
 
-```yaml
-services:
-  deepsproxy:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - PLAYWRIGHT_HEADLESS=true
-    volumes:
-      - ./deepseek_profile:/app/deepseek_profile
-      - ./kimi_profile:/app/kimi_profile
-      - ./glm_profile:/app/glm_profile
-      - ./mimo_profile:/app/mimo_profile
-    cap_add:
-      - SYS_ADMIN
-    restart: unless-stopped
-```
-
-### Build e Execução
-
-```bash
-# Build
-docker-compose build
-
-# Executar em background
-docker-compose up -d
-
-# Ver logs
-docker-compose logs -f
-
-# Parar
-docker-compose down
-```
+| Comando | Descrição |
+|---------|-----------|
+| `npm start` | Inicia o servidor e solicita a Senha Mestra do Vault |
+| `npm run setup-vault` | Empacota e criptografa as credenciais em arquivos `.enc` |
+| `npm run login:<provider>` | Abre um navegador limpo para você logar no serviço (`ds`, `kimi`, `glm`, `mimo`, `hf`) |
+| `npm run build` | Compila o projeto TypeScript em JavaScript puro na pasta `dist/` |
+| `npm test` | Executa a bateria de testes automatizados unitários e E2E |
 
 ---
 
 ## 🧪 Testes
 
+A suíte de testes valida a confiabilidade do proxy, limites de contexto, retentativas e compatibilidade com a API da OpenAI.
+
 ```bash
 # Executar todos os testes
 npm test
 
-# Executar com watch mode
+# Executar com watch mode (para desenvolvimento)
 npm run test:watch
-
-# Executar testes específicos
-npm test -- src/index.test.ts
-
-# Coverage report
-npm run test:coverage
 ```
 
 ---
 
-## 🔍 Troubleshooting
+## 🔍 Troubleshooting (Resolução de Problemas)
 
-### Playwright não inicializa
-
+### O Playwright falha em abrir o navegador
+Em sistemas Linux ou Dockerizados, dependências do Chromium podem faltar. Execute:
 ```bash
-# Reinstalar browsers
-npx playwright install --with-deps
-
-# Verificar dependências do sistema
-npx playwright install-deps
+npx playwright install --with-deps chromium
 ```
 
-### Erro de autenticação
-
-- Verifique se `API_KEY` no `.env` corresponde ao header enviado
-- Teste sem `API_KEY` configurada para isolar o problema
-
-### Timeout em requests
-
-- Aumente `PLAYWRIGHT_TIMEOUT` no `.env`
-- Verifique conectividade com a API DeepSeek
-- Considere executar com `PLAYWRIGHT_HEADLESS=false` para debug visual
-
-### Sessão não persiste
-
-- Certifique-se que `deepseek_profile/` tem permissões de escrita
-- Execute `npm run login` para renovar a sessão
+### Timeout constante nas respostas
+- Aumente a variável `PLAYWRIGHT_TIMEOUT` no `.env` (ex: `60000` para 60 segundos).
+- Verifique se a IA não está bloqueando seu IP com um CAPTCHA. Entre no Dashboard visual e renove sua sessão fazendo login novamente.
 
 ---
 
-## 🤝 Contribuindo
+## 🤝 Regras de Contribuição
 
-1. Fork o repositório
-2. Crie uma branch para sua feature: `git checkout -b feature/minha-feature`
-3. Commit suas mudanças: `git commit -m 'feat: adiciona minha feature'`
-4. Push para a branch: `git push origin feature/minha-feature`
-5. Abra um Pull Request
-
-### Guidelines de Código
-
-- Siga o padrão TypeScript strict
-- Adicione testes para novas funcionalidades
-- Mantenha compatibilidade com OpenAI API spec
+1. Faça um Fork do repositório
+2. Crie uma branch para sua feature: `git checkout -b feature/sua-feature`
+3. Siga o padrão TypeScript **strict** presente no `tsconfig.json`. Evite usar `any` sempre que possível.
+4. Mantenha 100% de compatibilidade com a documentação da OpenAI API nas respostas enviadas.
+5. Abra um Pull Request e descreva os testes que você realizou.
 
 ---
 
@@ -505,25 +195,10 @@ Distribuído sob licença ISC. Veja `LICENSE` para mais informações.
 
 > Este projeto é fornecido estritamente para fins educacionais e de pesquisa.
 
-### Hardening de Segurança Local
-Para garantir a máxima proteção da máquina local:
-- **Sandbox do Chromium**: O Playwright roda *com* a sandbox habilitada. Por este motivo, para rodar no Docker, o parâmetro `cap_add: [SYS_ADMIN]` é obrigatório no `docker-compose.yml`.
-- **Network Binding**: O servidor é blindado para rodar nativamente apenas em `127.0.0.1` (localhost). Nenhuma rede externa consegue acessar a porta, prevenindo vazamentos em redes Wi-Fi públicas.
-- **Strict CORS**: O sistema bloqueia requisições CSRF/SSRF. Apenas origens provenientes de `localhost` podem disparar a API no navegador.
-- **Timing Attacks**: A validação de `API_KEY` utiliza `crypto.timingSafeEqual` mitigando ataques de força bruta por tempo.
-
 Os autores não incentivam ou endossam:
-- Uso indevido ou malicioso
-- Automação não autorizada de serviços terceiros
-- Violação de Termos de Serviço de plataformas
-- Atividades que violem leis ou regulamentações aplicáveis
+- Uso indevido, comercial ou malicioso.
+- Automação não autorizada de serviços de terceiros para bypass de planos pagos.
+- Violação de Termos de Serviço de plataformas de Inteligência Artificial.
+- Atividades que violem leis ou regulamentações locais e internacionais aplicáveis.
 
-Usuários são integralmente responsáveis pelo uso deste software, incluindo conformidade com leis, regulamentos e contratos de serviço aplicáveis.
-
-Este repositório demonstra conceitos relacionados a:
-- Automação de navegadores com Playwright
-- Gerenciamento de sessões e autenticação
-- Arquiteturas de runtime compatíveis com OpenAI
-- Padrões de proxy e roteamento de API
-
-**Use por sua conta e risco.**
+Usuários são integralmente responsáveis pelo uso deste software. **Use por sua conta e risco.**

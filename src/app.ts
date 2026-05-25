@@ -13,7 +13,7 @@ export const app = new Hono();
 
 import fs from 'fs';
 import path from 'path';
-import { initPlaywright, getActivePage } from './providers/playwright.ts';
+import { initPlaywright, getActivePage, closePlaywright } from './providers/playwright.ts';
 import { encryptBuffer, packAndEncryptDir, secureWipeDir } from './core/security/vault.ts';
 
 export function modelEntry(id: string, owner: string = 'deepseek') {
@@ -43,7 +43,7 @@ app.use('*', cors({
   }
 }));
 
-app.use('*', async (c, next) => {
+app.use('/v1/*', async (c, next) => {
   const apiKey = process.env.API_KEY;
   if (apiKey) {
     const authHeader = c.req.header('Authorization');
@@ -137,6 +137,8 @@ app.get('/api/dashboard/status', (c) => {
 app.post('/api/dashboard/login/:id', async (c) => {
   const id = c.req.param('id');
   try {
+    await closePlaywright(id); // Force close the headless instance first
+    await new Promise(r => setTimeout(r, 1500)); // Wait for Chromium file locks to release
     await initPlaywright(id, false); // false = not headless, so user can login
     const page = getActivePage(id);
     if (page) {

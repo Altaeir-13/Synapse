@@ -20,5 +20,4 @@ scratch/
 hugchat.py
 
 # Cofre Criptografado (Vault)
-.env.enc
-*.enc
+# O sistema ignora os arquivos abertos, mas permite commitar os criptografados (.enc)

@@ -51,6 +51,14 @@ Na tela do Dashboard (no seu navegador), o primeiro passo é criar a sua **Senha
 
 ---
 
+## 🔒 Entendendo a Segurança: Cofre vs API Key
+Antes de continuar, é muito importante você entender **por que** o sistema tem duas "senhas" diferentes, e para que serve cada uma:
+
+- **1. A Senha do Cofre (Vault):** Protege os seus arquivos físicos no HD. Se um vírus roubar a pasta do seu projeto, ele não vai conseguir acessar sua conta da DeepSeek porque os seus cookies estão trancados nessa caixa-forte. Você só digita essa senha uma vez quando o servidor liga (para destrancar a caixa para o servidor usar).
+- **2. A sua `API_KEY`:** É como se fosse a "Senha do Wi-Fi" do seu proxy. Ela serve para que os programas que você usa (como Cursor e KiloCode) provem que são eles mesmos tentando usar a sua IA, e não um aplicativo malicioso ou alguém na sua rede local invadindo o seu computador. Você mesmo inventa essa chave (ou anota a que o terminal gerou) e coloca lá no KiloCode!
+
+---
+
 ## Passo 4: Fazendo Login nas IAs
 
 Ainda no Dashboard visual:

@@ -427,6 +427,10 @@
         
         providers.forEach(p => {
           const isReady = data.activeProfiles.includes(p.id);
+          const isVaultLocked = !data.vaultUnlocked;
+          const btnDisabled = isVaultLocked ? 'disabled title="Configure o Cofre primeiro para liberar o acesso"' : '';
+          const opacityStyle = isVaultLocked ? 'opacity: 0.5;' : '';
+          
           const card = document.createElement('div');
           card.className = 'provider-card';
           card.innerHTML = `
@@ -439,10 +443,10 @@
             <div style="font-size: 14px;">
               > ${p.model}
             </div>
-            <div style="margin-top: auto;">
+            <div style="margin-top: auto; ${opacityStyle}">
               ${isReady 
-                ? `<button class="button-alert" style="width: 100%" onclick="relogin('${p.id}')">REFAZER LOGIN</button>` 
-                : `<button class="button-primary" style="width: 100%" onclick="login('${p.id}')" id="btn-login-${p.id}"><span class="loader"></span> INICIAR SESSÃO</button>`
+                ? `<button class="button-alert" style="width: 100%" onclick="relogin('${p.id}')" ${btnDisabled}>ABRIR NAVEGADOR</button>` 
+                : `<button class="button-primary" style="width: 100%" onclick="login('${p.id}')" id="btn-login-${p.id}" ${btnDisabled}><span class="loader"></span> INICIAR SESSÃO</button>`
               }
             </div>
           `;
@@ -456,16 +460,21 @@
 
     async function login(providerId) {
       const btn = document.getElementById(`btn-login-${providerId}`);
-      btn.classList.add('loading');
-      btn.disabled = true;
+      if (btn) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+      }
       try {
-        await fetch(`/api/dashboard/login/${providerId}`, { method: 'POST' });
+        const res = await fetch(`/api/dashboard/login/${providerId}`, { method: 'POST' });
+        if (!res.ok) throw new Error(await res.text());
         setTimeout(fetchStatus, 3000);
       } catch (err) {
         alert('Erro ao iniciar login: ' + err.message);
       } finally {
-        btn.classList.remove('loading');
-        btn.disabled = false;
+        if (btn) {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
       }
     }
 

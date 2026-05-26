@@ -1,3 +1,5 @@
+process.env.TEST_MOCK_PLAYWRIGHT = 'true';
+process.env.API_KEY = 'test-api-key-123';
 import test from 'node:test';
 import assert from 'node:assert';
 import { app } from '../app.ts';

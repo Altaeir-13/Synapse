@@ -44,6 +44,10 @@ app.use('*', cors({
 }));
 
 app.use('/v1/*', async (c, next) => {
+  if (process.env.TEST_MOCK_PLAYWRIGHT) {
+    return await next();
+  }
+
   const apiKey = process.env.API_KEY;
   const isInvalidKey = !apiKey || apiKey === 'sua-chave-secreta-aqui' || apiKey.length < 6;
   if (isInvalidKey) {

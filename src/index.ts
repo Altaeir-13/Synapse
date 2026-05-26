@@ -8,20 +8,19 @@ import * as dotenv from 'dotenv';
 import { getProvider } from './providers/index.ts';
 import { app } from './app.ts';
 import { fileURLToPath } from 'url';
-import { decryptEnvFile, secureWipeDir, getVaultPassword, setVaultPassword, wipeVaultPassword } from './core/security/vault.ts';
+import { loadEncryptedEnv, secureWipeDir, getVaultPassword, setVaultPassword, wipeVaultPassword } from './core/security/vault.ts';
 import fs from 'fs';
 import path from 'path';
 import open from 'open';
 import os from 'os';
 import { askPassword } from './shared/utils/cli.ts';
-
 import crypto from 'crypto';
 
 function initializeEnvironment() {
   const envPath = path.resolve('.env');
   
   // $O(1) check prevents wasted I/O and crypto ops on subsequent boots
-  if (fs.existsSync(envPath)) return;
+  if (fs.existsSync(envPath) || fs.existsSync(path.resolve('.env.enc'))) return;
 
   const envExamplePath = path.resolve('.env.example');
 
@@ -50,8 +49,6 @@ function initializeEnvironment() {
   }
 }
 
-// Removed redundant top-level execution
-
 async function ensureVaultUnlocked() {
   if (process.env.TEST_MOCK_PLAYWRIGHT) return;
   
@@ -66,33 +63,34 @@ async function ensureVaultUnlocked() {
 
   if (!requiresPassword) return;
   
-  if (getVaultPassword()) {
-    if (hasEnvEnc) decryptEnvFile(envEncPath, getVaultPassword());
+  const currentPwd = getVaultPassword();
+  if (currentPwd) {
+    if (hasEnvEnc) loadEncryptedEnv(envEncPath, currentPwd);
     return;
   }
 
   const password = await askPassword('Enter Vault Master Password: ');
   setVaultPassword(password);
-  if (hasEnvEnc) decryptEnvFile(envEncPath, password);
+  if (hasEnvEnc) loadEncryptedEnv(envEncPath, password);
   console.log('\nVault unlocked!');
 }
 
 async function bootstrap() {
-  // 1. Environment Preparation
+  // 1. Vault Decryption
+  await ensureVaultUnlocked();
+
+  // 2. Environment Preparation
   initializeEnvironment();
   dotenv.config();
 
   if (!process.env.API_KEY) {
-    console.warn('\n[!] WARNING: No API_KEY was found in your .env file.');
+    console.warn('\n[!] WARNING: No API_KEY was found in your .env file or encrypted vault.');
     console.warn('[!] The API will remain blocked until you configure one and restart the server.\n');
   }
 
   if (process.env.DEEPSPROXY_PASSWORD) {
     setVaultPassword(process.env.DEEPSPROXY_PASSWORD);
   }
-
-  // 2. Vault Decryption
-  await ensureVaultUnlocked();
 
   // 3. Provider Initialization
   const activeProviders = (process.env.ACTIVE_PROVIDERS || 'deepseek').split(',').map(s => s.trim());

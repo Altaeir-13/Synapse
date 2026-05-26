@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.local
+.env.enc
 *.log
 .DS_Store
 coverage/
@@ -20,4 +21,5 @@ scratch/
 hugchat.py
 
 # Cofre Criptografado (Vault)
-# O sistema ignora os arquivos abertos, mas permite commitar os criptografados (.enc)
+# Nada do usuario deve ir para o git (nem arquivos abertos, nem arquivos criptografados)
+*.enc

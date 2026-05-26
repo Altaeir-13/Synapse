@@ -115,25 +115,16 @@ export async function decryptAndUnpackDir(srcFile: string, destDir: string, pass
   }
 }
 
-export function decryptEnvFile(srcFile: string, password: Buffer): void {
+import * as dotenv from 'dotenv';
+
+export function loadEncryptedEnv(srcFile: string, password: Buffer): void {
   const encrypted = fs.readFileSync(srcFile);
   const decrypted = decryptBuffer(encrypted, password).toString('utf-8');
   
-  decrypted.split('\n').forEach(line => {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith('#')) {
-      const idx = trimmed.indexOf('=');
-      if (idx > 0) {
-        const key = trimmed.substring(0, idx).trim();
-        let val = trimmed.substring(idx + 1).trim();
-        // Remove quotes if present
-        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-          val = val.substring(1, val.length - 1);
-        }
-        process.env[key] = val;
-      }
-    }
-  });
+  const envConfig = dotenv.parse(decrypted);
+  for (const k in envConfig) {
+    process.env[k] = envConfig[k];
+  }
 }
 
 export function secureWipeDir(dirPath: string): void {

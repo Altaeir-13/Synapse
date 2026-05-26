@@ -1,9 +1,25 @@
-node_modules
-dist
-deepseek_profile
+node_modules/
+dist/
 .env
-.git
-.gitignore
-README.md
-.DS_Store
+.env.local
+.env.enc
 *.log
+.DS_Store
+coverage/
+.cache/
+.kilo/
+start-deepsproxy.sh
+
+# Profiles e Tokens de Autenticacao
+*_profile/
+*.token
+.kimi-token
+
+# Temp and Test files
+scratch/
+*.mp4
+hugchat.py
+
+# Cofre Criptografado (Vault)
+# Nada do usuario deve ir para o docker
+*.enc

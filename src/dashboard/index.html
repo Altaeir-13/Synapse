@@ -371,6 +371,24 @@
     </div>
   </div>
 
+  <!-- API Key Missing Modal -->
+  <div class="modal-overlay" id="apikey-modal">
+    <div class="modal" style="border-color: var(--accent-pink);">
+      <h2 class="section-title" style="margin-bottom: 16px; font-size: 24px; color: var(--accent-pink);">[ ⚠️ Acesso Bloqueado ]</h2>
+      <p style="font-size: 14px; margin-bottom: 16px; color: var(--text-white);">
+        Sua <b>API_KEY</b> no arquivo <code>.env</code> está vazia, muito fraca, ou usando o valor padrão. Para a sua segurança, o sistema inteiro está bloqueado.
+      </p>
+      <div style="background: rgba(255,0,128,0.1); padding: 16px; border-radius: 4px; font-size: 14px;">
+        1. Abra o arquivo <code>.env</code> na pasta do projeto.<br>
+        2. Mude para uma senha sua (mínimo 6 caracteres): <br><code style="color: var(--accent-pink);">API_KEY=sua-senha-aqui</code><br>
+        3. Reinicie o servidor no terminal.<br>
+      </div>
+      <div style="margin-top: 24px; text-align: center; font-size: 12px; color: #888;">
+        Recarregue a página (F5) após reiniciar o servidor.
+      </div>
+    </div>
+  </div>
+
   <!-- Vault Modal -->
   <div class="modal-overlay" id="vault-modal">
     <div class="modal">

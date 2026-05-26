@@ -393,9 +393,13 @@
   <div class="modal-overlay" id="vault-modal">
     <div class="modal">
       <h2 class="section-title" style="margin-bottom: 16px; font-size: 24px;">[ Setup ]</h2>
-      <p style="font-size: 14px;">
-        Crie uma Senha Mestra forte. Ela será usada para criptografar todos os seus logins salvos e também será a sua API Key.
+      <p style="font-size: 14px; margin-bottom: 12px;">
+        Crie uma Senha Mestra forte para criptografar suas sessões e senhas salvos no disco.
       </p>
+      <div style="background: rgba(255,200,0,0.1); border: 1px solid rgba(255,200,0,0.3); padding: 12px; border-radius: 4px; font-size: 13px; color: #ffcc00; margin-bottom: 16px;">
+        <strong>⚠️ ATENÇÃO:</strong> Sua API Key atual é <code id="modal-api-key" style="color: var(--text-white); user-select: all; font-weight: bold; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px;">********</code><br><br>
+        Copie e salve esta chave agora! Ao criar o cofre, o arquivo .env será criptografado e ocultado. Você precisará desta chave para configurar o seu Editor de Código.
+      </div>
       <div class="form-group">
         <label>> Senha_</label>
         <input type="password" id="vault-password" class="input-text" placeholder="***">
@@ -430,6 +434,14 @@
         } else {
           document.getElementById('apikey-modal').classList.remove('active');
           document.querySelector('.container').style.display = 'flex';
+        }
+
+        if (data.apiKey) {
+          const setupApiKey = document.getElementById('setup-api-key');
+          if (setupApiKey) setupApiKey.innerText = data.apiKey;
+          
+          const modalApiKey = document.getElementById('modal-api-key');
+          if (modalApiKey) modalApiKey.innerText = data.apiKey;
         }
         
         // Update Vault Status
@@ -542,7 +554,7 @@
         
         if (!res.ok) throw new Error(await res.text());
         
-        alert('Cofre configurado e criptografado!');
+        alert('Senha Mestre Definida com sucesso! Reinicie o servidor no terminal (Ctrl+C e npm start) para trancar o sistema e aplicar a proteção.');
         closeVaultModal();
         fetchStatus();
       } catch (err) {

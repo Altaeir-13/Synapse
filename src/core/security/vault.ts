@@ -85,7 +85,14 @@ export async function packAndEncryptDir(dirPath: string, destFile: string, passw
   const dirName = path.basename(dirPath);
   const parentDir = path.dirname(dirPath);
   
-  const tarStream = tar.c({ gzip: true, cwd: parentDir }, [dirName]);
+  const tarStream = tar.c({ 
+    gzip: true, 
+    cwd: parentDir,
+    filter: (filePath) => {
+      const p = filePath.toLowerCase();
+      return !p.endsWith('.tmp') && !p.endsWith('.lock') && !p.includes('singletonlock') && !p.includes('.com.google.chrome');
+    }
+  }, [dirName]);
   const chunks: Buffer[] = [];
   
   for await (const chunk of tarStream) {

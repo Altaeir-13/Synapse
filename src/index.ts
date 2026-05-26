@@ -8,25 +8,49 @@ import * as dotenv from 'dotenv';
 import { getProvider } from './providers/index.ts';
 import { app } from './app.ts';
 import { fileURLToPath } from 'url';
-import { decryptEnvFile, secureWipeDir } from './core/security/vault.ts';
+import { decryptEnvFile, secureWipeDir, getVaultPassword, setVaultPassword, wipeVaultPassword } from './core/security/vault.ts';
 import fs from 'fs';
 import path from 'path';
 import open from 'open';
 import os from 'os';
 import { askPassword } from './shared/utils/cli.ts';
 
-dotenv.config();
 import crypto from 'crypto';
 
-if (!process.env.API_KEY) {
-  process.env.API_KEY = 'sk-' + crypto.randomBytes(24).toString('hex');
-  console.warn('\n[!] WARNING: No API_KEY was found in environment.');
-  console.warn(`[!] A secure API Key was auto-generated for this session:\n`);
-  console.warn(`    ${process.env.API_KEY}\n`);
-  console.warn(`[!] To make this permanent, add API_KEY=... to your .env file.\n`);
+function initializeEnvironment() {
+  const envPath = path.resolve('.env');
+  
+  // $O(1) check prevents wasted I/O and crypto ops on subsequent boots
+  if (fs.existsSync(envPath)) return;
+
+  const envExamplePath = path.resolve('.env.example');
+
+  try {
+    if (fs.existsSync(envExamplePath)) {
+      const exampleContent = fs.readFileSync(envExamplePath, 'utf8');
+      const generatedKey = 'sk-' + crypto.randomBytes(24).toString('hex');
+      const apiKeyRegex = /^API_KEY=.*$/m;
+      let newContent: string;
+
+      if (apiKeyRegex.test(exampleContent)) {
+        newContent = exampleContent.replace(apiKeyRegex, `API_KEY=${generatedKey}`);
+      } else {
+        // Fallback: Append safely if the placeholder is missing entirely
+        newContent = exampleContent.trim() + `\nAPI_KEY=${generatedKey}\n`;
+      }
+
+      fs.writeFileSync(envPath, newContent, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+      console.log('[Setup] No .env file found. Auto-generating one from .env.example...');
+      console.log('[Setup] A unique, secure API_KEY has been generated and saved to your .env file with strict permissions (0600).\n');
+    }
+  } catch (err: any) {
+    if (err.code !== 'EEXIST') {
+      console.warn('[Setup] Could not auto-generate .env file:', err.message);
+    }
+  }
 }
 
-(globalThis as any)._vaultPassword = process.env.DEEPSPROXY_PASSWORD || '';
+// Removed redundant top-level execution
 
 async function ensureVaultUnlocked() {
   if (process.env.TEST_MOCK_PLAYWRIGHT) return;
@@ -42,52 +66,63 @@ async function ensureVaultUnlocked() {
 
   if (!requiresPassword) return;
   
-  if ((globalThis as any)._vaultPassword) {
-    if (hasEnvEnc) decryptEnvFile(envEncPath, (globalThis as any)._vaultPassword);
+  if (getVaultPassword()) {
+    if (hasEnvEnc) decryptEnvFile(envEncPath, getVaultPassword());
     return;
   }
 
   const password = await askPassword('Enter Vault Master Password: ');
-  (globalThis as any)._vaultPassword = password;
+  setVaultPassword(password);
   if (hasEnvEnc) decryptEnvFile(envEncPath, password);
   console.log('\nVault unlocked!');
 }
 
-ensureVaultUnlocked().then(() => {
-  if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    const activeProviders = (process.env.ACTIVE_PROVIDERS || 'deepseek').split(',').map(s => s.trim());
+async function bootstrap() {
+  // 1. Environment Preparation
+  initializeEnvironment();
+  dotenv.config();
 
-    Promise.all(activeProviders.map(async (pid) => {
-      try {
-        const p = getProvider(pid);
-        await p.init();
-        console.log(`[Server] Provider '${pid}' initialized.`);
-      } catch (e: any) {
-        console.warn(`[Server] Could not initialize provider '${pid}': ${e.message}`);
-      }
-    })).then(() => {
-      const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-      const hostname = process.env.HOST || '127.0.0.1';
-      console.log(`[Server] Running on http://${hostname}:${port}`);
-
-      serve({
-        fetch: app.fetch,
-        port,
-        hostname
-      });
-
-      // Auto-open browser for GUI Dashboard
-      if (!process.env.NO_OPEN) {
-        open(`http://${hostname}:${port}/`).catch(err => console.error('[Server] Could not open browser:', err));
-      }
-    }).catch((err: any) => {
-      console.error('[Server] Failed to initialize:', err);
-      process.exit(1);
-    });
+  if (!process.env.API_KEY) {
+    console.warn('\n[!] WARNING: No API_KEY was found in your .env file.');
+    console.warn('[!] The API will remain blocked until you configure one and restart the server.\n');
   }
-});
 
-// Cleanup orphaned temp profiles on startup and shutdown
+  if (process.env.DEEPSPROXY_PASSWORD) {
+    setVaultPassword(process.env.DEEPSPROXY_PASSWORD);
+  }
+
+  // 2. Vault Decryption
+  await ensureVaultUnlocked();
+
+  // 3. Provider Initialization
+  const activeProviders = (process.env.ACTIVE_PROVIDERS || 'deepseek').split(',').map(s => s.trim());
+  await Promise.all(activeProviders.map(async (pid) => {
+    try {
+      const p = getProvider(pid);
+      await p.init();
+      console.log(`[Server] Provider '${pid}' initialized.`);
+    } catch (e: any) {
+      console.warn(`[Server] Could not initialize provider '${pid}': ${e.message}`);
+    }
+  }));
+
+  // 4. Server Startup
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+  const hostname = process.env.HOST || '127.0.0.1';
+  console.log(`[Server] Running on http://${hostname}:${port}`);
+
+  serve({
+    fetch: app.fetch,
+    port,
+    hostname
+  });
+
+  if (!process.env.NO_OPEN) {
+    open(`http://${hostname}:${port}/`).catch(err => console.error('[Server] Could not open browser:', err));
+  }
+}
+
+// Lifecycle Hooks
 function cleanupTempProfiles() {
   const tmpRoot = os.tmpdir();
   const tempDirs = fs.readdirSync(tmpRoot).filter(d => d.startsWith('deepsproxy_profile_'));
@@ -95,6 +130,19 @@ function cleanupTempProfiles() {
     secureWipeDir(path.join(tmpRoot, d));
   }
 }
-cleanupTempProfiles();
-process.on('exit', cleanupTempProfiles);
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  bootstrap().catch((err: any) => {
+    console.error('[Server] Fatal initialization error:', err);
+    process.exit(1);
+  });
+}
+
+function handleExit() {
+  cleanupTempProfiles();
+  wipeVaultPassword();
+  process.exit(0);
+}
+
+process.on('exit', handleExit);
 process.on('SIGINT', () => process.exit());

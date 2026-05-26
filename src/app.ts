@@ -14,7 +14,7 @@ export const app = new Hono();
 import fs from 'fs';
 import path from 'path';
 import { initPlaywright, getActivePage, closePlaywright } from './providers/playwright.ts';
-import { encryptBuffer, packAndEncryptDir, secureWipeDir } from './core/security/vault.ts';
+import { encryptBuffer, packAndEncryptDir, secureWipeDir, getVaultPassword, setVaultPassword } from './core/security/vault.ts';
 
 export function modelEntry(id: string, owner: string = 'deepseek') {
   const dynamicLimit = getContextLength(id);
@@ -45,14 +45,18 @@ app.use('*', cors({
 
 app.use('/v1/*', async (c, next) => {
   const apiKey = process.env.API_KEY;
-  if (apiKey) {
-    const authHeader = c.req.header('Authorization');
-    const xApiKey = c.req.header('X-API-Key');
-    const providedKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : xApiKey;
-    if (!providedKey || providedKey.length !== apiKey.length || !timingSafeEqual(Buffer.from(providedKey), Buffer.from(apiKey))) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
+  const isInvalidKey = !apiKey || apiKey === 'sua-chave-secreta-aqui' || apiKey.length < 6;
+  if (isInvalidKey) {
+    return c.json({ error: 'API_KEY is invalid or insecure. Please define a custom key (min 6 chars) in your .env file and restart the server.' }, 401);
   }
+  
+  const authHeader = c.req.header('Authorization');
+  const xApiKey = c.req.header('X-API-Key');
+  const providedKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : xApiKey;
+  if (!providedKey || providedKey.length !== apiKey.length || !timingSafeEqual(Buffer.from(providedKey), Buffer.from(apiKey))) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
   await next();
 });
 
@@ -114,7 +118,7 @@ app.get('/', (c) => {
 });
 
 app.get('/api/dashboard/status', (c) => {
-  const vaultUnlocked = !!(globalThis as any)._vaultPassword;
+  const vaultUnlocked = !!getVaultPassword();
   const cwdFiles = fs.readdirSync(process.cwd());
   const vaultExists = cwdFiles.some(f => f.endsWith('_profile.enc')) || fs.existsSync(path.resolve('.env.enc'));
 
@@ -127,10 +131,14 @@ app.get('/api/dashboard/status', (c) => {
     return false;
   });
 
+  const apiKey = process.env.API_KEY;
+  const hasValidApiKey = apiKey && apiKey !== 'sua-chave-secreta-aqui' && apiKey.length >= 6;
+
   return c.json({
     vaultUnlocked,
     vaultExists,
-    activeProfiles
+    activeProfiles,
+    hasApiKey: !!hasValidApiKey
   });
 });
 
@@ -160,7 +168,7 @@ app.post('/api/dashboard/vault/setup', async (c) => {
   if (!password || password.length < 4) return c.text('Password too short', 400);
 
   try {
-    (globalThis as any)._vaultPassword = password;
+    setVaultPassword(password);
     
     const envPath = path.resolve('.env');
     const envEncPath = path.resolve('.env.enc');

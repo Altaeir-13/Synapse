@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import { Mutex } from '../shared/utils/mutex.ts';
-import { decryptAndUnpackDir, packAndEncryptDir, secureWipeDir } from '../core/security/vault.ts';
+import { decryptAndUnpackDir, packAndEncryptDir, secureWipeDir, getVaultPassword } from '../core/security/vault.ts';
 
 interface ProviderPlaywrightState {
   context: BrowserContext;
@@ -21,7 +21,7 @@ export async function initPlaywright(providerId: string, headless = true) {
     return;
   }
 
-  const password = (globalThis as any)._vaultPassword;
+  const password = getVaultPassword();
   const encryptedProfile = path.resolve(`${providerId}_profile.enc`);
   const localProfile = path.resolve(`${providerId}_profile`);
   
@@ -88,7 +88,7 @@ export async function closePlaywright(providerId: string) {
   if (state) {
     await state.context.close();
     
-    const password = (globalThis as any)._vaultPassword;
+    const password = getVaultPassword();
     if (state.tempDir && password) {
       console.log(`[Vault] Re-encrypting and securely wiping ${providerId} profile...`);
       const profilePath = path.join(state.tempDir, `${providerId}_profile`);

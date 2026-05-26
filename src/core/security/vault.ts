@@ -8,6 +8,26 @@ const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
+let _vaultMasterPassword: Buffer | null = null;
+
+export function setVaultPassword(password: string | Buffer): void {
+  if (_vaultMasterPassword) {
+    _vaultMasterPassword.fill(0);
+  }
+  _vaultMasterPassword = Buffer.isBuffer(password) ? Buffer.from(password) : Buffer.from(password, 'utf8');
+}
+
+export function getVaultPassword(): Buffer | null {
+  return _vaultMasterPassword;
+}
+
+export function wipeVaultPassword(): void {
+  if (_vaultMasterPassword) {
+    _vaultMasterPassword.fill(0);
+    _vaultMasterPassword = null;
+  }
+}
+
 export class VaultError extends Error {
   constructor(message: string, public readonly code?: string, public readonly originalError?: unknown) {
     super(message);
@@ -22,11 +42,11 @@ export class VaultDecryptionError extends VaultError {
   }
 }
 
-function deriveKey(password: string, salt: Buffer): Buffer {
+function deriveKey(password: Buffer, salt: Buffer): Buffer {
   return crypto.scryptSync(password, salt, 32);
 }
 
-export function encryptBuffer(data: Buffer, password: string): Buffer {
+export function encryptBuffer(data: Buffer, password: Buffer): Buffer {
   const salt = crypto.randomBytes(SALT_LENGTH);
   const iv = crypto.randomBytes(IV_LENGTH);
   const key = deriveKey(password, salt);
@@ -39,7 +59,7 @@ export function encryptBuffer(data: Buffer, password: string): Buffer {
   return Buffer.concat([salt, iv, authTag, encrypted]);
 }
 
-export function decryptBuffer(data: Buffer, password: string): Buffer {
+export function decryptBuffer(data: Buffer, password: Buffer): Buffer {
   if (data.length < SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) {
     throw new VaultError('Data is too short or corrupted', 'ERR_DATA_CORRUPTED');
   }
@@ -61,7 +81,7 @@ export function decryptBuffer(data: Buffer, password: string): Buffer {
   }
 }
 
-export async function packAndEncryptDir(dirPath: string, destFile: string, password: string): Promise<void> {
+export async function packAndEncryptDir(dirPath: string, destFile: string, password: Buffer): Promise<void> {
   const dirName = path.basename(dirPath);
   const parentDir = path.dirname(dirPath);
   
@@ -77,7 +97,7 @@ export async function packAndEncryptDir(dirPath: string, destFile: string, passw
   fs.writeFileSync(destFile, encrypted);
 }
 
-export async function decryptAndUnpackDir(srcFile: string, destDir: string, password: string): Promise<void> {
+export async function decryptAndUnpackDir(srcFile: string, destDir: string, password: Buffer): Promise<void> {
   const encrypted = fs.readFileSync(srcFile);
   const decrypted = decryptBuffer(encrypted, password);
   
@@ -95,7 +115,7 @@ export async function decryptAndUnpackDir(srcFile: string, destDir: string, pass
   }
 }
 
-export function decryptEnvFile(srcFile: string, password: string): void {
+export function decryptEnvFile(srcFile: string, password: Buffer): void {
   const encrypted = fs.readFileSync(srcFile);
   const decrypted = decryptBuffer(encrypted, password).toString('utf-8');
   

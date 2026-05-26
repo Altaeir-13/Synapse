@@ -361,9 +361,9 @@
       <p style="margin-bottom: 16px; font-size: 16px;">
         Copie as informações abaixo e cole nas configurações de API do seu editor de código (Opção OpenAI Compatible):
       </p>
-      <div class="setup-code">
+      <div class="setup-code" id="setup-code-box">
         <span>Base URL:</span> http://127.0.0.1:3000/v1<br>
-        <span>API Key: </span> <span id="setup-api-key" style="color: var(--text-white)">Sua Senha do Cofre</span>
+        <span>API Key: </span> <span id="setup-api-key" style="color: var(--text-white)">********</span>
       </div>
       <p style="margin-top: 16px; font-size: 14px;">
         * Em "Custom Model Name", digite o nome do modelo que você ativou acima (ex: <code>glm-4</code>, <code>kimi-chat</code>, <code>deepseek-reasoner</code>).
@@ -404,6 +404,15 @@
       try {
         const res = await fetch('/api/dashboard/status');
         const data = await res.json();
+        
+        if (!data.hasApiKey) {
+          document.getElementById('apikey-modal').classList.add('active');
+          document.querySelector('.container').style.display = 'none';
+          return;
+        } else {
+          document.getElementById('apikey-modal').classList.remove('active');
+          document.querySelector('.container').style.display = 'flex';
+        }
         
         // Update Vault Status
         const vaultStatusText = document.getElementById('vault-status-text');

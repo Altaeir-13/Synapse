@@ -95,8 +95,11 @@ Perfis de navegador (`*_profile`) contêm tokens sensíveis de acesso. Para perm
 O servidor possui um Dashboard gráfico. Para evitar que espiões na mesma rede Wi-Fi local acessem o painel e roubem a senha mestra durante a digitação:
 - O sistema possui um *middleware* que bloqueia sumariamente (HTTP 403) qualquer requisição ao Dashboard `/` e `/api/dashboard/*` que não tenha como origem estritamente `127.0.0.1` ou `::1`.
 
-### 3. Geração Automática de API Key (Fail-Secure API)
-Se o usuário esquecer de configurar uma `API_KEY` para proteger os endpoints da OpenAI (`/v1/chat/completions`), a API **não** ficará aberta. Na ausência de chave configurada, o motor gera automaticamente uma chave criptograficamente segura de 48 bytes e trava o servidor com ela.
+### 3. Geração Automática de API Key (Zero-Config Security)
+Para garantir que o seu proxy nunca fique vulnerável na rede local, o processo de instalação é totalmente automatizado e "Seguro por Padrão" (Zero-Config):
+- Ao rodar o servidor pela primeira vez (sem um arquivo `.env`), o sistema **gera automaticamente uma API Key aleatória forte** (`sk-...`).
+- Essa chave é injetada no sistema e disponibilizada para visualização e cópia **exclusivamente no Dashboard Visual**.
+- **Atenção Máxima:** No momento em que você criar a sua Senha Mestra do Cofre, o arquivo original `.env` será **criptografado e excluído do disco** (`.env.enc`). Você **DEVE** copiar e salvar a sua API Key no bloco de notas antes de criar o cofre, ou perderá o acesso e precisará reconfigurar o sistema! A mesma API Key pode e deve ser usada em todos os seus sistemas simultaneamente (Cline, Cursor, Open WebUI, etc).
 
 ---
 
@@ -144,6 +147,9 @@ Embora o uso diário seja feito via Dashboard, a CLI expõe as seguintes ferrame
 | `npm run login:<provider>` | Abre um navegador limpo para você logar no serviço (`ds`, `kimi`, `glm`, `mimo`, `hf`) |
 | `npm run build` | Compila o projeto TypeScript em JavaScript puro na pasta `dist/` |
 | `npm test` | Executa a bateria de testes automatizados unitários e E2E |
+
+> [!NOTE]
+> **Empacotamento em binário standalone**: O pacote `pkg` (Vercel) foi removido por estar descontinuado e conter uma vulnerabilidade de escalação de privilégio local (GHSA-22r3-9w55-cj54). Caso essa funcionalidade seja necessária no futuro, utilize o fork mantido pela comunidade: **[@yao-pkg/pkg](https://github.com/yao-pkg/pkg)**.
 
 ---
 

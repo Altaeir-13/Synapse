@@ -142,7 +142,8 @@ app.get('/api/dashboard/status', (c) => {
     vaultUnlocked,
     vaultExists,
     activeProfiles,
-    hasApiKey: !!hasValidApiKey
+    hasApiKey: !!hasValidApiKey,
+    apiKey: apiKey || '********'
   });
 });
 
@@ -176,17 +177,25 @@ app.post('/api/dashboard/vault/setup', async (c) => {
     
     const envPath = path.resolve('.env');
     const envEncPath = path.resolve('.env.enc');
+    const passwordBuf = Buffer.from(password, 'utf8');
+    
     if (fs.existsSync(envPath)) {
       const envContent = fs.readFileSync(envPath);
-      const encryptedEnv = encryptBuffer(envContent, password);
+      const encryptedEnv = encryptBuffer(envContent, passwordBuf);
       fs.writeFileSync(envEncPath, encryptedEnv);
       fs.unlinkSync(envPath);
     }
     
     const cwdFiles = fs.readdirSync(process.cwd());
+    const providersList = ['deepseek', 'kimi', 'glm', 'mimo', 'huggingface'];
+    for (const p of providersList) {
+      await closePlaywright(p);
+    }
+    await new Promise(r => setTimeout(r, 1500)); // Wait for locks to release
+
     for (const file of cwdFiles) {
       if (file.endsWith('_profile') && fs.statSync(file).isDirectory()) {
-        await packAndEncryptDir(file, `${file}.enc`, password);
+        await packAndEncryptDir(file, `${file}.enc`, passwordBuf);
         secureWipeDir(file);
       }
     }

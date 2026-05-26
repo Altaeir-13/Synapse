@@ -37,29 +37,39 @@ npm start
 Se tudo der certo, o sistema vai abrir automaticamente o seu navegador principal em **http://127.0.0.1:3000/**. Essa é a tela de controle do seu proxy! 
 
 > [!TIP]
-> **API Key de Segurança**: Ao iniciar pela primeira vez, olhe no terminal. O sistema gerou uma `API_KEY` super segura automaticamente para você (algo como `sk-a1b2c3...`). Anote essa chave, você vai precisar dela no Passo 5!
+> **API Key de Segurança Automática**: Ao iniciar pela primeira vez, o sistema gerou uma `API_KEY` super segura automaticamente para você. Ela vai aparecer **direto na tela do Dashboard**!
 
 ---
 
-## Passo 3: Criando o seu Cofre (Vault)
+## Passo 3: O Perigo da API Key (⚠️ MUITO IMPORTANTE)
 
-Na tela do Dashboard (no seu navegador), o primeiro passo é criar a sua **Senha Mestra** do Cofre (Vault).
+Na tela do Dashboard (no seu navegador), na seção "Como Configurar" na parte inferior, você verá a sua **API Key** (uma chave longa que começa com `sk-...`).
 
-1. Na seção "Vault Setup", digite uma senha que você vai lembrar.
-2. Clique em "Setup Security Vault".
-3. Essa senha criptografa seus cookies com tecnologia de nível militar (AES-256), então nenhum vírus ou espião consegue roubar as suas contas. **Não esqueça essa senha!** Sempre que ligar o `npm start` no futuro, ele vai pedir essa senha no terminal para destrancar o cofre.
+**🚨 PARE TUDO E COPIE ESSA CHAVE AGORA!** Salve ela em um Bloco de Notas ou no seu gerenciador de senhas. Se você passar para o Passo 4 sem copiar essa chave, você perderá o acesso ao sistema para sempre e terá que reinstalar tudo do zero!
+
+---
+
+## Passo 4: Criando o seu Cofre (Vault)
+
+Ainda na tela do Dashboard, agora que você já copiou a sua API Key com segurança, vamos criar o seu Cofre (Vault):
+
+1. Clique no botão "CONFIGURAR COFRE".
+2. Digite uma **Senha Mestra** que você vai lembrar.
+3. Clique em "SALVAR".
+4. Nesse exato milissegundo, o sistema vai pegar a sua API Key, criptografá-la com nível militar (AES-256) e **DELETAR** a versão original do seu HD para que nenhum vírus consiga ler. 
+5. Volte para o seu terminal (a tela preta), aperte `Ctrl + C` para desligar o servidor, e digite `npm start` de novo. Agora sim, ele vai te pedir a senha para destrancar o sistema!
 
 ---
 
 ## 🔒 Entendendo a Segurança: Cofre vs API Key
 Antes de continuar, é muito importante você entender **por que** o sistema tem duas "senhas" diferentes, e para que serve cada uma:
 
-- **1. A Senha do Cofre (Vault):** Protege os seus arquivos físicos no HD. Se um vírus roubar a pasta do seu projeto, ele não vai conseguir acessar sua conta da DeepSeek porque os seus cookies estão trancados nessa caixa-forte. Você só digita essa senha uma vez quando o servidor liga (para destrancar a caixa para o servidor usar).
-- **2. A sua `API_KEY`:** É como se fosse a "Senha do Wi-Fi" do seu proxy. Ela serve para que os programas que você usa (como Cursor e KiloCode) provem que são eles mesmos tentando usar a sua IA, e não um aplicativo malicioso ou alguém na sua rede local invadindo o seu computador. Você mesmo inventa essa chave (ou anota a que o terminal gerou) e coloca lá no KiloCode!
+- **1. A Senha Mestra do Cofre (Vault):** Protege os seus arquivos físicos no HD. Se um vírus roubar a pasta do seu projeto, ele não vai conseguir acessar sua conta da DeepSeek porque os seus cookies estão trancados nessa caixa-forte. Você só digita essa senha **uma vez** quando o servidor liga no terminal (para destrancar a caixa para o servidor usar).
+- **2. A sua `API_KEY`:** É como se fosse a "Senha do Wi-Fi" do seu proxy. Ela serve para que os programas que você usa (como Cursor e KiloCode) provem que são eles mesmos tentando usar a sua IA. Você deve usar a **MESMA** chave (`sk-...`) em todos os seus aplicativos simultaneamente! Eles não sabem da existência da Senha Mestra.
 
 ---
 
-## Passo 4: Fazendo Login nas IAs
+## Passo 5: Fazendo Login nas IAs
 
 Ainda no Dashboard visual:
 
@@ -70,7 +80,7 @@ Ainda no Dashboard visual:
 
 ---
 
-## Passo 5: Rodando em Segundo Plano (Opcional - Docker)
+## Passo 6: Rodando em Segundo Plano (Opcional - Docker)
 
 Se você não quer deixar uma tela preta de terminal aberta o tempo todo, você pode usar o **Docker** para rodar o sistema invisível no fundo do seu computador:
 
@@ -84,7 +94,7 @@ Se você não quer deixar uma tela preta de terminal aberta o tempo todo, você 
 
 ---
 
-## Passo 6: Plugando no KiloCode / Cursor / Cline
+## Passo 7: Plugando no KiloCode / Cursor / Cline
 
 Com o servidor rodando (seja pelo terminal aberto com `npm start` ou invisível via Docker). Agora vá no seu programa favorito (KiloCode, Cline, Cursor, etc) nas configurações de API (procure por provedores Customizados ou "OpenAI Compatible").
 

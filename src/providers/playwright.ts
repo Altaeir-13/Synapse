@@ -67,6 +67,7 @@ export async function initPlaywright(providerId: string, headless = true) {
     const state = providerStates[providerId];
     if (state?.tempDir && password) {
       try {
+        await new Promise(r => setTimeout(r, 1500)); // Allow Chromium to delete tmp files
         await packAndEncryptDir(path.join(state.tempDir, `${providerId}_profile`), path.resolve(`${providerId}_profile.enc`), password);
         secureWipeDir(state.tempDir);
       } catch (e) { console.error('Failed to encrypt profile on crash:', e); }

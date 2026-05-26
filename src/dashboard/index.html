@@ -1,20 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DeepsProxy - Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  <title>Synapse - Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --bg-color: #000000;
+      --card-bg: #000000;
       --text-light: #ececf1;
       --text-white: #ffffff;
       --accent-green: #00cc00;
       --accent-pink: #ff0080;
       --hover-color: #f92672;
     }
-    
+
+    body.light-theme {
+      --bg-color: #f4f4ec;
+      --card-bg: #f4f4ec;
+      --text-light: #333333;
+      --text-white: #000000;
+      --accent-green: #008800;
+      --accent-pink: #cc0066;
+      --hover-color: #ff0055;
+    }
+
+    body.light-theme .setup-code {
+      background-color: rgba(0, 136, 0, 0.05);
+    }
+
+    body.light-theme .modal-overlay {
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    body.light-theme .modal {
+      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-theme .badge-neutral {
+      background-color: #e0e0e0;
+      color: #333333;
+    }
+
+    .top-bar {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    .lang-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .lang-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      background-color: var(--card-bg);
+      min-width: 120px;
+      border: 1px solid var(--accent-green);
+      box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .lang-menu a {
+      color: var(--text-light);
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      font-size: 14px;
+    }
+
+    .lang-menu a:hover {
+      background-color: rgba(0, 204, 0, 0.1);
+    }
+
+    .lang-dropdown:hover .lang-menu {
+      display: block;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -36,12 +109,13 @@
     .header {
       width: 100%;
       max-width: 1200px;
-      padding: 24px 16px;
+      padding: 20px 16px;
       text-align: center;
+      margin-top: 20px;
     }
 
     .header h1 {
-      font-size: 64px;
+      font-size: 56px;
       font-weight: 600;
       line-height: 1.2;
       color: var(--accent-green);
@@ -56,30 +130,30 @@
     .container {
       width: 100%;
       max-width: 1200px;
-      padding: 24px 16px;
+      padding: 20px 16px;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 20px;
     }
 
     .card {
-      background-color: var(--bg-color);
+      background-color: var(--card-bg);
       color: var(--text-light);
       border: 1px solid rgba(0, 204, 0, 0.3);
       border-radius: 8px;
-      padding: 24px;
-      box-shadow: 0px 1px 2px rgba(0,204,0,0.1);
-      margin-bottom: 16px;
+      padding: 20px;
+      box-shadow: 0px 1px 2px rgba(0, 204, 0, 0.1);
+      margin-bottom: 0;
       position: relative;
       z-index: 1;
     }
 
     .section-title {
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 600;
       line-height: 1.2;
       color: var(--accent-green);
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -90,7 +164,7 @@
       color: var(--accent-green);
       border: 1px solid var(--accent-green);
       border-radius: 6px;
-      padding: 8px 16px; /* slightly increased from 0px 12px for usability, but maintains rules */
+      padding: 8px 16px;
       font-weight: 600;
       font-size: 14px;
       font-family: inherit;
@@ -105,7 +179,7 @@
 
     .button-primary:hover {
       opacity: 0.9;
-      box-shadow: 0px 1px 2px rgba(0,0,0,0.1);
+      box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .button-primary:disabled {
@@ -140,7 +214,7 @@
     }
 
     .provider-card {
-      background-color: var(--bg-color);
+      background-color: var(--card-bg);
       border: 1px dashed rgba(0, 204, 0, 0.4);
       border-radius: 8px;
       padding: 16px;
@@ -191,7 +265,7 @@
     }
 
     .input-text {
-      background-color: var(--bg-color);
+      background-color: var(--card-bg);
       color: var(--text-light);
       border: 1px solid var(--accent-green);
       border-radius: 4px;
@@ -203,7 +277,7 @@
 
     .input-text:focus {
       outline: none;
-      box-shadow: 0 0 0 2px rgba(0,204,0,0.5);
+      box-shadow: 0 0 0 2px rgba(0, 204, 0, 0.5);
     }
 
     .setup-code {
@@ -252,13 +326,13 @@
     }
 
     .modal {
-      background-color: var(--bg-color);
+      background-color: var(--card-bg);
       border: 1px solid var(--accent-green);
       border-radius: 8px;
       padding: 24px;
       width: 100%;
       max-width: 400px;
-      box-shadow: 0px 1px 2px rgba(0,0,0,0.15);
+      box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.15);
       transform: translateY(20px);
       transition: transform 0.3s;
       z-index: 3;
@@ -299,7 +373,7 @@
       animation: spin 1s linear infinite;
       display: none;
     }
-    
+
     .loading .loader {
       display: inline-block;
     }
@@ -309,28 +383,174 @@
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     @media (max-width: 768px) {
       .header h1 {
         font-size: 48px;
       }
+
       .section-title {
         font-size: 24px;
       }
-      .container, .header {
+
+      .container,
+      .header {
         padding: 16px;
       }
     }
+
+    /* Refactored inline styles to classes */
+    .toggle-btn {
+      padding: 10px 12px 6px 12px;
+      /* Adjusted padding to push text slightly down for visual centering */
+      line-height: 1;
+    }
+
+    .setup-desc {
+      margin-bottom: 16px;
+      font-size: 16px;
+    }
+
+    .setup-api-key-text {
+      color: var(--text-white);
+    }
+
+    .custom-model-hint {
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    .modal-error {
+      border-color: var(--accent-pink);
+    }
+
+    .modal-title-error {
+      margin-bottom: 16px;
+      font-size: 24px;
+      color: var(--accent-pink);
+    }
+
+    .modal-desc {
+      font-size: 14px;
+      margin-bottom: 16px;
+      color: var(--text-white);
+    }
+
+    .modal-steps-box {
+      background: rgba(255, 0, 128, 0.1);
+      padding: 16px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .modal-code-pink {
+      color: var(--accent-pink);
+    }
+
+    .modal-footer-note {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .modal-title-setup {
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+
+    .modal-desc-setup {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .modal-warning-box {
+      background: rgba(255, 200, 0, 0.1);
+      border: 1px solid rgba(255, 200, 0, 0.3);
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #ffcc00;
+      margin-bottom: 16px;
+    }
+
+    .modal-warning-code {
+      color: var(--text-white);
+      -webkit-user-select: all;
+      user-select: all;
+      font-weight: bold;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: flex-end;
+    }
+
+    .modal-link-cancel {
+      padding: 8px 0;
+      font-size: 14px;
+    }
+
+    .provider-model {
+      font-size: 14px;
+    }
+
+    .provider-actions {
+      margin-top: auto;
+    }
+
+    .provider-actions.locked {
+      opacity: 0.5;
+    }
+
+    .btn-full-width {
+      width: 100%;
+    }
+
+    .text-accent-green {
+      color: var(--accent-green);
+    }
+
+    .text-accent-pink {
+      color: var(--accent-pink);
+    }
+
+    .text-light-color {
+      color: var(--text-light);
+    }
   </style>
 </head>
+
 <body>
 
+  <div class="top-bar">
+    <button class="button-primary toggle-btn" onclick="toggleTheme()" id="btn-theme">[ MODE: DRK ]</button>
+    <div class="lang-dropdown">
+      <button class="button-primary toggle-btn" id="btn-lang">[ LANG: PT ]</button>
+      <div class="lang-menu">
+        <a href="#" onclick="setLang('pt')">Português</a>
+        <a href="#" onclick="setLang('en')">English</a>
+        <a href="#" onclick="setLang('es')">Español</a>
+        <a href="#" onclick="setLang('zh')">中文</a>
+      </div>
+    </div>
+  </div>
+
   <div class="header">
-    <h1>DeepsProxy</h1>
-    <p>> O seu gateway universal de Inteligência Artificial_</p>
+    <h1>Synapse</h1>
+    <p data-i18n="subtitle">> O seu gateway universal de Inteligência Artificial_</p>
   </div>
 
   <div class="container">
@@ -338,18 +558,19 @@
     <div class="card">
       <div class="vault-section">
         <div>
-          <h2 class="section-title">[ Vault Status ]</h2>
-          <p id="vault-status-text">Verificando status do cofre...</p>
+          <h2 class="section-title" data-i18n="vaultStatusTitle">[ Vault Status ]</h2>
+          <p id="vault-status-text" data-i18n="checkingVault">Verificando status do cofre...</p>
         </div>
         <div>
-          <button class="button-primary" id="btn-vault-setup" onclick="openVaultModal()">CONFIGURAR COFRE</button>
+          <button class="button-primary" id="btn-vault-setup" onclick="openVaultModal()"
+            data-i18n="btnVaultSetup">CONFIGURAR COFRE</button>
         </div>
       </div>
     </div>
 
     <!-- Providers -->
     <div class="card">
-      <h2 class="section-title">[ Modelos Disponíveis ]</h2>
+      <h2 class="section-title" data-i18n="modelsTitle">[ Modelos Disponíveis ]</h2>
       <div class="grid" id="providers-grid">
         <!-- Injetado via JS -->
       </div>
@@ -357,33 +578,36 @@
 
     <!-- Setup Info -->
     <div class="card">
-      <h2 class="section-title">[ Como Configurar ]</h2>
-      <p style="margin-bottom: 16px; font-size: 16px;">
+      <h2 class="section-title" data-i18n="howToSetupTitle">[ Como Configurar ]</h2>
+      <p class="setup-desc" data-i18n="setupInstructions">
         Copie as informações abaixo e cole nas configurações de API do seu editor de código (Opção OpenAI Compatible):
       </p>
       <div class="setup-code" id="setup-code-box">
         <span>Base URL:</span> http://127.0.0.1:3000/v1<br>
-        <span>API Key: </span> <span id="setup-api-key" style="color: var(--text-white)">********</span>
+        <span>API Key: </span> <span id="setup-api-key" class="setup-api-key-text">********</span>
       </div>
-      <p style="margin-top: 16px; font-size: 14px;">
-        * Em "Custom Model Name", digite o nome do modelo que você ativou acima (ex: <code>glm-4</code>, <code>kimi-chat</code>, <code>deepseek-reasoner</code>).
+      <p class="custom-model-hint" data-i18n="customModelHint">
+        * Em "Custom Model Name", digite o nome do modelo que você ativou acima (ex: <code>glm-4</code>,
+        <code>kimi-chat</code>, <code>deepseek-reasoner</code>).
       </p>
     </div>
   </div>
 
   <!-- API Key Missing Modal -->
   <div class="modal-overlay" id="apikey-modal">
-    <div class="modal" style="border-color: var(--accent-pink);">
-      <h2 class="section-title" style="margin-bottom: 16px; font-size: 24px; color: var(--accent-pink);">[ ⚠️ Acesso Bloqueado ]</h2>
-      <p style="font-size: 14px; margin-bottom: 16px; color: var(--text-white);">
-        Sua <b>API_KEY</b> no arquivo <code>.env</code> está vazia, muito fraca, ou usando o valor padrão. Para a sua segurança, o sistema inteiro está bloqueado.
+    <div class="modal modal-error">
+      <h2 class="section-title modal-title-error" data-i18n="accessBlockedTitle">[ ⚠️ Acesso Bloqueado ]</h2>
+      <p class="modal-desc" data-i18n="accessBlockedText">
+        Sua <b>API_KEY</b> no arquivo <code>.env</code> está vazia, muito fraca, ou usando o valor padrão. Para a sua
+        segurança, o sistema inteiro está bloqueado.
       </p>
-      <div style="background: rgba(255,0,128,0.1); padding: 16px; border-radius: 4px; font-size: 14px;">
+      <div class="modal-steps-box" data-i18n="accessBlockedSteps">
         1. Abra o arquivo <code>.env</code> na pasta do projeto.<br>
-        2. Mude para uma senha sua (mínimo 6 caracteres): <br><code style="color: var(--accent-pink);">API_KEY=sua-senha-aqui</code><br>
+        2. Mude para uma senha sua (mínimo 6 caracteres): <br><code
+          class="modal-code-pink">API_KEY=sua-senha-aqui</code><br>
         3. Reinicie o servidor no terminal.<br>
       </div>
-      <div style="margin-top: 24px; text-align: center; font-size: 12px; color: #888;">
+      <div class="modal-footer-note" data-i18n="reloadText">
         Recarregue a página (F5) após reiniciar o servidor.
       </div>
     </div>
@@ -392,24 +616,219 @@
   <!-- Vault Modal -->
   <div class="modal-overlay" id="vault-modal">
     <div class="modal">
-      <h2 class="section-title" style="margin-bottom: 16px; font-size: 24px;">[ Setup ]</h2>
-      <p style="font-size: 14px;">
-        Crie uma Senha Mestra forte. Ela será usada para criptografar todos os seus logins salvos e também será a sua API Key.
+      <h2 class="section-title modal-title-setup" data-i18n="setupTitle">[ Setup ]</h2>
+      <p class="modal-desc-setup" data-i18n="setupDesc">
+        Crie uma Senha Mestra forte para criptografar suas sessões e senhas salvos no disco.
       </p>
+      <div class="modal-warning-box">
+        <span data-i18n="setupWarning1"><strong>⚠️ ATENÇÃO:</strong> Sua API Key atual é </span><code id="modal-api-key"
+          class="modal-warning-code">********</code><br><br>
+        <span data-i18n="setupWarning2">Copie e salve esta chave agora! Ao criar o cofre, o arquivo .env será
+          criptografado e ocultado. Você precisará desta chave para configurar o seu Editor de Código.</span>
+      </div>
       <div class="form-group">
-        <label>> Senha_</label>
+        <label data-i18n="passwordLabel">> Senha_</label>
         <input type="password" id="vault-password" class="input-text" placeholder="***">
       </div>
-      <div style="display: flex; gap: 16px; justify-content: flex-end;">
-        <a href="#" class="link" style="padding: 8px 0; font-size: 14px;" onclick="closeVaultModal(event)">[ CANCELAR ]</a>
+      <div class="modal-actions">
+        <a href="#" class="link modal-link-cancel" onclick="closeVaultModal(event)" data-i18n="btnCancel">[ CANCELAR
+          ]</a>
         <button class="button-primary" id="btn-save-vault" onclick="setupVault()">
-          <span class="loader"></span> SALVAR
+          <span class="loader"></span> <span data-i18n="btnSave">SALVAR</span>
         </button>
       </div>
     </div>
   </div>
 
   <script>
+    const i18n = {
+      pt: {
+        subtitle: "> O seu gateway universal de Inteligência Artificial_",
+        vaultStatusTitle: "[ Vault Status ]",
+        checkingVault: "Verificando status do cofre...",
+        btnVaultSetup: "CONFIGURAR COFRE",
+        modelsTitle: "[ Modelos Disponíveis ]",
+        howToSetupTitle: "[ Como Configurar ]",
+        setupInstructions: "Copie as informações abaixo e cole nas configurações de API do seu editor de código (Opção OpenAI Compatible):",
+        customModelHint: '* Em "Custom Model Name", digite o nome do modelo que você ativou acima (ex: <code>glm-4</code>, <code>kimi-chat</code>, <code>deepseek-reasoner</code>).',
+        accessBlockedTitle: "[ ⚠️ Acesso Bloqueado ]",
+        accessBlockedText: "Sua <b>API_KEY</b> no arquivo <code>.env</code> está vazia, muito fraca, ou usando o valor padrão. Para a sua segurança, o sistema inteiro está bloqueado.",
+        accessBlockedSteps: "1. Abra o arquivo <code>.env</code> na pasta do projeto.<br>2. Mude para uma senha sua (mínimo 6 caracteres): <br><code class=\"modal-code-pink\">API_KEY=sua-senha-aqui</code><br>3. Reinicie o servidor no terminal.<br>",
+        reloadText: "Recarregue a página (F5) após reiniciar o servidor.",
+        setupTitle: "[ Setup ]",
+        setupDesc: "Crie uma Senha Mestra forte para criptografar suas sessões e senhas salvos no disco.",
+        setupWarning1: "<strong>⚠️ ATENÇÃO:</strong> Sua API Key atual é ",
+        setupWarning2: "Copie e salve esta chave agora! Ao criar o cofre, o arquivo .env será criptografado e ocultado. Você precisará desta chave para configurar o seu Editor de Código.",
+        passwordLabel: "> Senha_",
+        btnCancel: "[ CANCELAR ]",
+        btnSave: "SALVAR",
+        vaultUnlocked: "> Destrancado. Sessões seguras.",
+        vaultLocked: "> TRANCADO. Destranque o cofre no terminal.",
+        vaultInactive: "> Inativo. Crie uma Senha Mestra para iniciar.",
+        lockedBtn: "TRANCADO",
+        browserOpenWarning: "Isso abrirá o navegador novamente. Deseja continuar?",
+        pwdLengthWarning: "A senha deve ter pelo menos 4 caracteres.",
+        pwdSuccess: "Senha Mestre Definida com sucesso! Reinicie o servidor no terminal (Ctrl+C e npm start) para trancar o sistema e aplicar a proteção.",
+        btnStartSession: "INICIAR SESSÃO",
+        btnOpenBrowser: "ABRIR NAVEGADOR",
+        errStartLogin: "Erro ao iniciar login: ",
+        themeToggle: "[ MODE: DRK ]",
+        themeToggleLight: "[ MODE: LGT ]",
+        langToggle: "[ LANG: PT ]",
+        providerReady: "OK",
+        providerOff: "OFF",
+        vaultLockedTooltip: "Configure o Cofre primeiro para liberar o acesso"
+      },
+      en: {
+        subtitle: "> Your universal Artificial Intelligence gateway_",
+        vaultStatusTitle: "[ Vault Status ]",
+        checkingVault: "Checking vault status...",
+        btnVaultSetup: "SETUP VAULT",
+        modelsTitle: "[ Available Models ]",
+        howToSetupTitle: "[ How to Setup ]",
+        setupInstructions: "Copy the information below and paste it into your code editor's API settings (OpenAI Compatible option):",
+        customModelHint: '* In "Custom Model Name", enter the name of the model you activated above (e.g., <code>glm-4</code>, <code>kimi-chat</code>, <code>deepseek-reasoner</code>).',
+        accessBlockedTitle: "[ ⚠️ Access Blocked ]",
+        accessBlockedText: "Your <b>API_KEY</b> in the <code>.env</code> file is empty, too weak, or using the default value. For your security, the entire system is blocked.",
+        accessBlockedSteps: "1. Open the <code>.env</code> file in the project folder.<br>2. Change it to your own password (minimum 6 characters): <br><code class=\"modal-code-pink\">API_KEY=your-password-here</code><br>3. Restart the server in the terminal.<br>",
+        reloadText: "Reload the page (F5) after restarting the server.",
+        setupTitle: "[ Setup ]",
+        setupDesc: "Create a strong Master Password to encrypt your saved sessions and passwords on disk.",
+        setupWarning1: "<strong>⚠️ WARNING:</strong> Your current API Key is ",
+        setupWarning2: "Copy and save this key now! When you create the vault, the .env file will be encrypted and hidden. You will need this key to configure your Code Editor.",
+        passwordLabel: "> Password_",
+        btnCancel: "[ CANCEL ]",
+        btnSave: "SAVE",
+        vaultUnlocked: "> Unlocked. Secure sessions.",
+        vaultLocked: "> LOCKED. Unlock the vault in the terminal.",
+        vaultInactive: "> Inactive. Create a Master Password to start.",
+        lockedBtn: "LOCKED",
+        browserOpenWarning: "This will open the browser again. Do you want to continue?",
+        pwdLengthWarning: "Password must be at least 4 characters long.",
+        pwdSuccess: "Master Password set successfully! Restart the server in the terminal (Ctrl+C and npm start) to lock the system and apply protection.",
+        btnStartSession: "START SESSION",
+        btnOpenBrowser: "OPEN BROWSER",
+        errStartLogin: "Error starting login: ",
+        themeToggle: "[ MODE: DRK ]",
+        themeToggleLight: "[ MODE: LGT ]",
+        langToggle: "[ LANG: EN ]",
+        providerReady: "OK",
+        providerOff: "OFF",
+        vaultLockedTooltip: "Setup Vault first to unlock access"
+      },
+      es: {
+        subtitle: "> Tu puerta de enlace universal a la Inteligencia Artificial_",
+        vaultStatusTitle: "[ Estado del Vault ]",
+        checkingVault: "Comprobando estado del vault...",
+        btnVaultSetup: "CONFIGURAR VAULT",
+        modelsTitle: "[ Modelos Disponibles ]",
+        howToSetupTitle: "[ Cómo Configurar ]",
+        setupInstructions: "Copia la siguiente información y pégala en la configuración de API de tu editor de código (Opción OpenAI Compatible):",
+        customModelHint: '* En "Custom Model Name", introduce el nombre del modelo que activaste arriba (ej: <code>glm-4</code>, <code>kimi-chat</code>, <code>deepseek-reasoner</code>).',
+        accessBlockedTitle: "[ ⚠️ Acceso Bloqueado ]",
+        accessBlockedText: "Tu <b>API_KEY</b> en el archivo <code>.env</code> está vacía, es demasiado débil o usa el valor predeterminado. Por tu seguridad, todo el sistema está bloqueado.",
+        accessBlockedSteps: "1. Abre el archivo <code>.env</code> en la carpeta del proyecto.<br>2. Cámbialo por tu propia contraseña (mínimo 6 caracteres): <br><code class=\"modal-code-pink\">API_KEY=tu-contraseña-aquí</code><br>3. Reinicia el servidor en la terminal.<br>",
+        reloadText: "Recarga la página (F5) después de reiniciar el servidor.",
+        setupTitle: "[ Configuración ]",
+        setupDesc: "Crea una Contraseña Maestra fuerte para encriptar tus sesiones y contraseñas guardadas en el disco.",
+        setupWarning1: "<strong>⚠️ ADVERTENCIA:</strong> Tu API Key actual es ",
+        setupWarning2: "¡Copia y guarda esta clave ahora! Al crear el vault, el archivo .env se encriptará y se ocultará. Necesitarás esta clave para configurar tu Editor de Código.",
+        passwordLabel: "> Contraseña_",
+        btnCancel: "[ CANCELAR ]",
+        btnSave: "GUARDAR",
+        vaultUnlocked: "> Desbloqueado. Sesiones seguras.",
+        vaultLocked: "> BLOQUEADO. Desbloquea el vault en la terminal.",
+        vaultInactive: "> Inactivo. Crea una Contraseña Maestra para empezar.",
+        lockedBtn: "BLOQUEADO",
+        browserOpenWarning: "Esto abrirá el navegador de nuevo. ¿Deseas continuar?",
+        pwdLengthWarning: "La contraseña debe tener al menos 4 caracteres.",
+        pwdSuccess: "¡Contraseña Maestra configurada con éxito! Reinicia el servidor en la terminal (Ctrl+C y npm start) para bloquear el sistema y aplicar la protección.",
+        btnStartSession: "INICIAR SESIÓN",
+        btnOpenBrowser: "ABRIR NAVEGADOR",
+        errStartLogin: "Error al iniciar sesión: ",
+        themeToggle: "[ MODE: DRK ]",
+        themeToggleLight: "[ MODE: LGT ]",
+        langToggle: "[ LANG: ES ]",
+        providerReady: "OK",
+        providerOff: "OFF",
+        vaultLockedTooltip: "Configura el Vault primero para desbloquear el acceso"
+      },
+      zh: {
+        subtitle: "> 您的通用人工智能网关_",
+        vaultStatusTitle: "[ 保险库状态 ]",
+        checkingVault: "正在检查保险库状态...",
+        btnVaultSetup: "设置保险库",
+        modelsTitle: "[ 可用模型 ]",
+        howToSetupTitle: "[ 如何设置 ]",
+        setupInstructions: "复制以下信息并将其粘贴到代码编辑器的 API 设置中（OpenAI 兼容选项）：",
+        customModelHint: '* 在“Custom Model Name”中，输入您在上方激活的模型名称（例如：<code>glm-4</code>、<code>kimi-chat</code>、<code>deepseek-reasoner</code>）。',
+        accessBlockedTitle: "[ ⚠️ 访问被拒绝 ]",
+        accessBlockedText: "您的 <code>.env</code> 文件中的 <b>API_KEY</b> 为空、太弱或使用的是默认值。为了您的安全，整个系统已被锁定。",
+        accessBlockedSteps: "1. 在项目文件夹中打开 <code>.env</code> 文件。<br>2. 更改为您自己的密码（至少 6 个字符）：<br><code class=\"modal-code-pink\">API_KEY=你的密码</code><br>3. 在终端中重启服务器。<br>",
+        reloadText: "重启服务器后重新加载页面 (F5)。",
+        setupTitle: "[ 设置 ]",
+        setupDesc: "创建一个强大的主密码来加密保存在磁盘上的会话和密码。",
+        setupWarning1: "<strong>⚠️ 警告：</strong> 您当前的 API Key 是 ",
+        setupWarning2: "请立即复制并保存此密钥！创建保险库后，.env 文件将被加密并隐藏。您需要此密钥来配置您的代码编辑器。",
+        passwordLabel: "> 密码_",
+        btnCancel: "[ 取消 ]",
+        btnSave: "保存",
+        vaultUnlocked: "> 已解锁。安全会话。",
+        vaultLocked: "> 已锁定。在终端中解锁保险库。",
+        vaultInactive: "> 未激活。创建一个主密码以开始。",
+        lockedBtn: "已锁定",
+        browserOpenWarning: "这将再次打开浏览器。您要继续吗？",
+        pwdLengthWarning: "密码长度必须至少为 4 个字符。",
+        pwdSuccess: "主密码设置成功！在终端中重启服务器（Ctrl+C 然后 npm start）以锁定系统并应用保护。",
+        btnStartSession: "开始会话",
+        btnOpenBrowser: "打开浏览器",
+        errStartLogin: "启动登录时出错：",
+        themeToggle: "[ MODE: DRK ]",
+        themeToggleLight: "[ MODE: LGT ]",
+        langToggle: "[ LANG: ZH ]",
+        providerReady: "OK",
+        providerOff: "OFF",
+        vaultLockedTooltip: "先设置保险库以解锁访问"
+      }
+    };
+
+    let currentLang = localStorage.getItem('lang') || 'pt';
+    let isLightMode = localStorage.getItem('theme') === 'light';
+
+    function applyTheme() {
+      if (isLightMode) {
+        document.body.classList.add('light-theme');
+        document.getElementById('btn-theme').innerText = i18n[currentLang].themeToggleLight;
+      } else {
+        document.body.classList.remove('light-theme');
+        document.getElementById('btn-theme').innerText = i18n[currentLang].themeToggle;
+      }
+    }
+
+    function toggleTheme() {
+      isLightMode = !isLightMode;
+      localStorage.setItem('theme', isLightMode ? 'light' : 'dark');
+      applyTheme();
+    }
+
+    function setLang(lang) {
+      currentLang = lang;
+      localStorage.setItem('lang', lang);
+      applyLang();
+      fetchStatus();
+    }
+
+    function applyLang() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (i18n[currentLang] && i18n[currentLang][key]) {
+          el.innerHTML = i18n[currentLang][key];
+        }
+      });
+      document.getElementById('btn-lang').innerText = i18n[currentLang].langToggle;
+      applyTheme();
+    }
+
     const providers = [
       { id: 'deepseek', name: 'DeepSeek', model: 'deepseek-reasoner' },
       { id: 'kimi', name: 'Kimi', model: 'kimi-chat' },
@@ -422,7 +841,7 @@
       try {
         const res = await fetch('/api/dashboard/status');
         const data = await res.json();
-        
+
         if (!data.hasApiKey) {
           document.getElementById('apikey-modal').classList.add('active');
           document.querySelector('.container').style.display = 'none';
@@ -431,50 +850,61 @@
           document.getElementById('apikey-modal').classList.remove('active');
           document.querySelector('.container').style.display = 'flex';
         }
-        
+
+        if (data.apiKey) {
+          const setupApiKey = document.getElementById('setup-api-key');
+          if (setupApiKey) setupApiKey.innerText = data.apiKey;
+
+          const modalApiKey = document.getElementById('modal-api-key');
+          if (modalApiKey) modalApiKey.innerText = data.apiKey;
+        }
+
         // Update Vault Status
         const vaultStatusText = document.getElementById('vault-status-text');
         const btnVaultSetup = document.getElementById('btn-vault-setup');
-        
+
         if (data.vaultUnlocked) {
-          vaultStatusText.innerHTML = '<span style="color: var(--accent-green)">> Destrancado. Sessões seguras.</span>';
+          vaultStatusText.innerHTML = `<span class="text-accent-green">${i18n[currentLang].vaultUnlocked}</span>`;
           btnVaultSetup.style.display = 'none';
         } else if (data.vaultExists) {
-          vaultStatusText.innerHTML = '<span style="color: var(--accent-pink)">> TRANCADO.</span> Destranque o cofre no terminal.';
-          btnVaultSetup.innerText = 'TRANCADO';
+          vaultStatusText.innerHTML = `<span class="text-accent-pink">${i18n[currentLang].vaultLocked}</span>`;
+          btnVaultSetup.innerText = i18n[currentLang].lockedBtn;
           btnVaultSetup.disabled = true;
+          btnVaultSetup.style.display = 'inline-flex';
         } else {
-          vaultStatusText.innerHTML = '<span style="color: var(--text-light)">> Inativo.</span> Crie uma Senha Mestra para iniciar.';
-          btnVaultSetup.innerText = 'CONFIGURAR COFRE';
+          vaultStatusText.innerHTML = `<span class="text-light-color">${i18n[currentLang].vaultInactive}</span>`;
+          btnVaultSetup.innerText = i18n[currentLang].btnVaultSetup;
+          btnVaultSetup.disabled = false;
+          btnVaultSetup.style.display = 'inline-flex';
         }
 
         // Update Providers Grid
         const grid = document.getElementById('providers-grid');
         grid.innerHTML = '';
-        
+
         providers.forEach(p => {
           const isReady = data.activeProfiles.includes(p.id);
           const isVaultLocked = !data.vaultUnlocked;
-          const btnDisabled = isVaultLocked ? 'disabled title="Configure o Cofre primeiro para liberar o acesso"' : '';
-          const opacityStyle = isVaultLocked ? 'opacity: 0.5;' : '';
-          
+          const btnDisabled = isVaultLocked ? `disabled title="${i18n[currentLang].vaultLockedTooltip}"` : '';
+          const lockedClass = isVaultLocked ? 'locked' : '';
+
           const card = document.createElement('div');
           card.className = 'provider-card';
           card.innerHTML = `
             <div class="provider-header">
               <div class="provider-name">${p.name}</div>
               <div class="${isReady ? 'badge-success' : 'badge-neutral'}">
-                ${isReady ? 'OK' : 'OFF'} 
+                ${isReady ? i18n[currentLang].providerReady : i18n[currentLang].providerOff} 
               </div>
             </div>
-            <div style="font-size: 14px;">
+            <div class="provider-model">
               > ${p.model}
             </div>
-            <div style="margin-top: auto; ${opacityStyle}">
-              ${isReady 
-                ? `<button class="button-alert" style="width: 100%" onclick="relogin('${p.id}')" ${btnDisabled}>ABRIR NAVEGADOR</button>` 
-                : `<button class="button-primary" style="width: 100%" onclick="login('${p.id}')" id="btn-login-${p.id}" ${btnDisabled}><span class="loader"></span> INICIAR SESSÃO</button>`
-              }
+            <div class="provider-actions ${lockedClass}">
+              ${isReady
+              ? `<button class="button-alert btn-full-width" onclick="relogin('${p.id}')" ${btnDisabled}>${i18n[currentLang].btnOpenBrowser}</button>`
+              : `<button class="button-primary btn-full-width" onclick="login('${p.id}')" id="btn-login-${p.id}" ${btnDisabled}><span class="loader"></span> ${i18n[currentLang].btnStartSession}</button>`
+            }
             </div>
           `;
           grid.appendChild(card);
@@ -496,7 +926,7 @@
         if (!res.ok) throw new Error(await res.text());
         setTimeout(fetchStatus, 3000);
       } catch (err) {
-        alert('Erro ao iniciar login: ' + err.message);
+        alert(i18n[currentLang].errStartLogin + err.message);
       } finally {
         if (btn) {
           btn.classList.remove('loading');
@@ -506,7 +936,7 @@
     }
 
     async function relogin(providerId) {
-      if(confirm('Isso abrirá o navegador novamente. Deseja continuar?')) {
+      if (confirm(i18n[currentLang].browserOpenWarning)) {
         login(providerId);
       }
     }
@@ -525,7 +955,7 @@
     async function setupVault() {
       const pwd = document.getElementById('vault-password').value;
       if (pwd.length < 4) {
-        alert('A senha deve ter pelo menos 4 caracteres.');
+        alert(i18n[currentLang].pwdLengthWarning);
         return;
       }
 
@@ -539,10 +969,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password: pwd })
         });
-        
+
         if (!res.ok) throw new Error(await res.text());
-        
-        alert('Cofre configurado e criptografado!');
+
+        alert(i18n[currentLang].pwdSuccess);
         closeVaultModal();
         fetchStatus();
       } catch (err) {
@@ -553,8 +983,11 @@
       }
     }
 
+    // Initialize UI on load
+    applyLang();
     fetchStatus();
     setInterval(fetchStatus, 5000);
   </script>
 </body>
+
 </html>

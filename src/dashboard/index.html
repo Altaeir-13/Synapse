@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DeepsProxy - Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  <title>Synapse - Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --bg-color: #000000;
@@ -15,7 +17,7 @@
       --accent-pink: #ff0080;
       --hover-color: #f92672;
     }
-    
+
     body.light-theme {
       --bg-color: #f4f4ec;
       --card-bg: #f4f4ec;
@@ -29,15 +31,15 @@
     body.light-theme .setup-code {
       background-color: rgba(0, 136, 0, 0.05);
     }
-    
+
     body.light-theme .modal-overlay {
       background: rgba(255, 255, 255, 0.8);
     }
-    
+
     body.light-theme .modal {
-      box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
     }
-    
+
     body.light-theme .badge-neutral {
       background-color: #e0e0e0;
       color: #333333;
@@ -64,7 +66,7 @@
       background-color: var(--card-bg);
       min-width: 120px;
       border: 1px solid var(--accent-green);
-      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
       z-index: 1;
       border-radius: 4px;
       overflow: hidden;
@@ -140,7 +142,7 @@
       border: 1px solid rgba(0, 204, 0, 0.3);
       border-radius: 8px;
       padding: 20px;
-      box-shadow: 0px 1px 2px rgba(0,204,0,0.1);
+      box-shadow: 0px 1px 2px rgba(0, 204, 0, 0.1);
       margin-bottom: 0;
       position: relative;
       z-index: 1;
@@ -177,7 +179,7 @@
 
     .button-primary:hover {
       opacity: 0.9;
-      box-shadow: 0px 1px 2px rgba(0,0,0,0.1);
+      box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .button-primary:disabled {
@@ -275,7 +277,7 @@
 
     .input-text:focus {
       outline: none;
-      box-shadow: 0 0 0 2px rgba(0,204,0,0.5);
+      box-shadow: 0 0 0 2px rgba(0, 204, 0, 0.5);
     }
 
     .setup-code {
@@ -330,7 +332,7 @@
       padding: 24px;
       width: 100%;
       max-width: 400px;
-      box-shadow: 0px 1px 2px rgba(0,0,0,0.15);
+      box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.15);
       transform: translateY(20px);
       transition: transform 0.3s;
       z-index: 3;
@@ -371,7 +373,7 @@
       animation: spin 1s linear infinite;
       display: none;
     }
-    
+
     .loading .loader {
       display: inline-block;
     }
@@ -381,56 +383,155 @@
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     @media (max-width: 768px) {
       .header h1 {
         font-size: 48px;
       }
+
       .section-title {
         font-size: 24px;
       }
-      .container, .header {
+
+      .container,
+      .header {
         padding: 16px;
       }
     }
 
     /* Refactored inline styles to classes */
-    .toggle-btn { 
-      padding: 10px 12px 6px 12px; /* Adjusted padding to push text slightly down for visual centering */
+    .toggle-btn {
+      padding: 10px 12px 6px 12px;
+      /* Adjusted padding to push text slightly down for visual centering */
       line-height: 1;
     }
-    
-    .setup-desc { margin-bottom: 16px; font-size: 16px; }
-    .setup-api-key-text { color: var(--text-white); }
-    .custom-model-hint { margin-top: 16px; font-size: 14px; }
 
-    .modal-error { border-color: var(--accent-pink); }
-    .modal-title-error { margin-bottom: 16px; font-size: 24px; color: var(--accent-pink); }
-    .modal-desc { font-size: 14px; margin-bottom: 16px; color: var(--text-white); }
-    .modal-steps-box { background: rgba(255,0,128,0.1); padding: 16px; border-radius: 4px; font-size: 14px; }
-    .modal-code-pink { color: var(--accent-pink); }
-    .modal-footer-note { margin-top: 24px; text-align: center; font-size: 12px; color: #888; }
+    .setup-desc {
+      margin-bottom: 16px;
+      font-size: 16px;
+    }
 
-    .modal-title-setup { margin-bottom: 16px; font-size: 24px; }
-    .modal-desc-setup { font-size: 14px; margin-bottom: 12px; }
-    .modal-warning-box { background: rgba(255,200,0,0.1); border: 1px solid rgba(255,200,0,0.3); padding: 12px; border-radius: 4px; font-size: 13px; color: #ffcc00; margin-bottom: 16px; }
-    .modal-warning-code { color: var(--text-white); user-select: all; font-weight: bold; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px; }
-    .modal-actions { display: flex; gap: 16px; justify-content: flex-end; }
-    .modal-link-cancel { padding: 8px 0; font-size: 14px; }
+    .setup-api-key-text {
+      color: var(--text-white);
+    }
 
-    .provider-model { font-size: 14px; }
-    .provider-actions { margin-top: auto; }
-    .provider-actions.locked { opacity: 0.5; }
-    .btn-full-width { width: 100%; }
+    .custom-model-hint {
+      margin-top: 16px;
+      font-size: 14px;
+    }
 
-    .text-accent-green { color: var(--accent-green); }
-    .text-accent-pink { color: var(--accent-pink); }
-    .text-light-color { color: var(--text-light); }
+    .modal-error {
+      border-color: var(--accent-pink);
+    }
+
+    .modal-title-error {
+      margin-bottom: 16px;
+      font-size: 24px;
+      color: var(--accent-pink);
+    }
+
+    .modal-desc {
+      font-size: 14px;
+      margin-bottom: 16px;
+      color: var(--text-white);
+    }
+
+    .modal-steps-box {
+      background: rgba(255, 0, 128, 0.1);
+      padding: 16px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .modal-code-pink {
+      color: var(--accent-pink);
+    }
+
+    .modal-footer-note {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .modal-title-setup {
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+
+    .modal-desc-setup {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .modal-warning-box {
+      background: rgba(255, 200, 0, 0.1);
+      border: 1px solid rgba(255, 200, 0, 0.3);
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #ffcc00;
+      margin-bottom: 16px;
+    }
+
+    .modal-warning-code {
+      color: var(--text-white);
+      user-select: all;
+      font-weight: bold;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: flex-end;
+    }
+
+    .modal-link-cancel {
+      padding: 8px 0;
+      font-size: 14px;
+    }
+
+    .provider-model {
+      font-size: 14px;
+    }
+
+    .provider-actions {
+      margin-top: auto;
+    }
+
+    .provider-actions.locked {
+      opacity: 0.5;
+    }
+
+    .btn-full-width {
+      width: 100%;
+    }
+
+    .text-accent-green {
+      color: var(--accent-green);
+    }
+
+    .text-accent-pink {
+      color: var(--accent-pink);
+    }
+
+    .text-light-color {
+      color: var(--text-light);
+    }
   </style>
 </head>
+
 <body>
 
   <div class="top-bar">
@@ -447,7 +548,7 @@
   </div>
 
   <div class="header">
-    <h1>DeepsProxy</h1>
+    <h1>Synapse</h1>
     <p data-i18n="subtitle">> O seu gateway universal de Inteligência Artificial_</p>
   </div>
 
@@ -460,7 +561,8 @@
           <p id="vault-status-text" data-i18n="checkingVault">Verificando status do cofre...</p>
         </div>
         <div>
-          <button class="button-primary" id="btn-vault-setup" onclick="openVaultModal()" data-i18n="btnVaultSetup">CONFIGURAR COFRE</button>
+          <button class="button-primary" id="btn-vault-setup" onclick="openVaultModal()"
+            data-i18n="btnVaultSetup">CONFIGURAR COFRE</button>
         </div>
       </div>
     </div>
@@ -484,7 +586,8 @@
         <span>API Key: </span> <span id="setup-api-key" class="setup-api-key-text">********</span>
       </div>
       <p class="custom-model-hint" data-i18n="customModelHint">
-        * Em "Custom Model Name", digite o nome do modelo que você ativou acima (ex: <code>glm-4</code>, <code>kimi-chat</code>, <code>deepseek-reasoner</code>).
+        * Em "Custom Model Name", digite o nome do modelo que você ativou acima (ex: <code>glm-4</code>,
+        <code>kimi-chat</code>, <code>deepseek-reasoner</code>).
       </p>
     </div>
   </div>
@@ -494,11 +597,13 @@
     <div class="modal modal-error">
       <h2 class="section-title modal-title-error" data-i18n="accessBlockedTitle">[ ⚠️ Acesso Bloqueado ]</h2>
       <p class="modal-desc" data-i18n="accessBlockedText">
-        Sua <b>API_KEY</b> no arquivo <code>.env</code> está vazia, muito fraca, ou usando o valor padrão. Para a sua segurança, o sistema inteiro está bloqueado.
+        Sua <b>API_KEY</b> no arquivo <code>.env</code> está vazia, muito fraca, ou usando o valor padrão. Para a sua
+        segurança, o sistema inteiro está bloqueado.
       </p>
       <div class="modal-steps-box" data-i18n="accessBlockedSteps">
         1. Abra o arquivo <code>.env</code> na pasta do projeto.<br>
-        2. Mude para uma senha sua (mínimo 6 caracteres): <br><code class="modal-code-pink">API_KEY=sua-senha-aqui</code><br>
+        2. Mude para uma senha sua (mínimo 6 caracteres): <br><code
+          class="modal-code-pink">API_KEY=sua-senha-aqui</code><br>
         3. Reinicie o servidor no terminal.<br>
       </div>
       <div class="modal-footer-note" data-i18n="reloadText">
@@ -515,15 +620,18 @@
         Crie uma Senha Mestra forte para criptografar suas sessões e senhas salvos no disco.
       </p>
       <div class="modal-warning-box">
-        <span data-i18n="setupWarning1"><strong>⚠️ ATENÇÃO:</strong> Sua API Key atual é </span><code id="modal-api-key" class="modal-warning-code">********</code><br><br>
-        <span data-i18n="setupWarning2">Copie e salve esta chave agora! Ao criar o cofre, o arquivo .env será criptografado e ocultado. Você precisará desta chave para configurar o seu Editor de Código.</span>
+        <span data-i18n="setupWarning1"><strong>⚠️ ATENÇÃO:</strong> Sua API Key atual é </span><code id="modal-api-key"
+          class="modal-warning-code">********</code><br><br>
+        <span data-i18n="setupWarning2">Copie e salve esta chave agora! Ao criar o cofre, o arquivo .env será
+          criptografado e ocultado. Você precisará desta chave para configurar o seu Editor de Código.</span>
       </div>
       <div class="form-group">
         <label data-i18n="passwordLabel">> Senha_</label>
         <input type="password" id="vault-password" class="input-text" placeholder="***">
       </div>
       <div class="modal-actions">
-        <a href="#" class="link modal-link-cancel" onclick="closeVaultModal(event)" data-i18n="btnCancel">[ CANCELAR ]</a>
+        <a href="#" class="link modal-link-cancel" onclick="closeVaultModal(event)" data-i18n="btnCancel">[ CANCELAR
+          ]</a>
         <button class="button-primary" id="btn-save-vault" onclick="setupVault()">
           <span class="loader"></span> <span data-i18n="btnSave">SALVAR</span>
         </button>
@@ -685,7 +793,7 @@
 
     let currentLang = localStorage.getItem('lang') || 'pt';
     let isLightMode = localStorage.getItem('theme') === 'light';
-    
+
     function applyTheme() {
       if (isLightMode) {
         document.body.classList.add('light-theme');
@@ -732,7 +840,7 @@
       try {
         const res = await fetch('/api/dashboard/status');
         const data = await res.json();
-        
+
         if (!data.hasApiKey) {
           document.getElementById('apikey-modal').classList.add('active');
           document.querySelector('.container').style.display = 'none';
@@ -745,15 +853,15 @@
         if (data.apiKey) {
           const setupApiKey = document.getElementById('setup-api-key');
           if (setupApiKey) setupApiKey.innerText = data.apiKey;
-          
+
           const modalApiKey = document.getElementById('modal-api-key');
           if (modalApiKey) modalApiKey.innerText = data.apiKey;
         }
-        
+
         // Update Vault Status
         const vaultStatusText = document.getElementById('vault-status-text');
         const btnVaultSetup = document.getElementById('btn-vault-setup');
-        
+
         if (data.vaultUnlocked) {
           vaultStatusText.innerHTML = `<span class="text-accent-green">${i18n[currentLang].vaultUnlocked}</span>`;
           btnVaultSetup.style.display = 'none';
@@ -772,13 +880,13 @@
         // Update Providers Grid
         const grid = document.getElementById('providers-grid');
         grid.innerHTML = '';
-        
+
         providers.forEach(p => {
           const isReady = data.activeProfiles.includes(p.id);
           const isVaultLocked = !data.vaultUnlocked;
           const btnDisabled = isVaultLocked ? `disabled title="${i18n[currentLang].vaultLockedTooltip}"` : '';
           const lockedClass = isVaultLocked ? 'locked' : '';
-          
+
           const card = document.createElement('div');
           card.className = 'provider-card';
           card.innerHTML = `
@@ -792,10 +900,10 @@
               > ${p.model}
             </div>
             <div class="provider-actions ${lockedClass}">
-              ${isReady 
-                ? `<button class="button-alert btn-full-width" onclick="relogin('${p.id}')" ${btnDisabled}>${i18n[currentLang].btnOpenBrowser}</button>` 
-                : `<button class="button-primary btn-full-width" onclick="login('${p.id}')" id="btn-login-${p.id}" ${btnDisabled}><span class="loader"></span> ${i18n[currentLang].btnStartSession}</button>`
-              }
+              ${isReady
+              ? `<button class="button-alert btn-full-width" onclick="relogin('${p.id}')" ${btnDisabled}>${i18n[currentLang].btnOpenBrowser}</button>`
+              : `<button class="button-primary btn-full-width" onclick="login('${p.id}')" id="btn-login-${p.id}" ${btnDisabled}><span class="loader"></span> ${i18n[currentLang].btnStartSession}</button>`
+            }
             </div>
           `;
           grid.appendChild(card);
@@ -827,7 +935,7 @@
     }
 
     async function relogin(providerId) {
-      if(confirm(i18n[currentLang].browserOpenWarning)) {
+      if (confirm(i18n[currentLang].browserOpenWarning)) {
         login(providerId);
       }
     }
@@ -860,9 +968,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password: pwd })
         });
-        
+
         if (!res.ok) throw new Error(await res.text());
-        
+
         alert(i18n[currentLang].pwdSuccess);
         closeVaultModal();
         fetchStatus();
@@ -880,4 +988,5 @@
     setInterval(fetchStatus, 5000);
   </script>
 </body>
+
 </html>

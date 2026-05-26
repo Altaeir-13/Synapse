@@ -145,6 +145,9 @@ Embora o uso diário seja feito via Dashboard, a CLI expõe as seguintes ferrame
 | `npm run build` | Compila o projeto TypeScript em JavaScript puro na pasta `dist/` |
 | `npm test` | Executa a bateria de testes automatizados unitários e E2E |
 
+> [!NOTE]
+> **Empacotamento em binário standalone**: O pacote `pkg` (Vercel) foi removido por estar descontinuado e conter uma vulnerabilidade de escalação de privilégio local (GHSA-22r3-9w55-cj54). Caso essa funcionalidade seja necessária no futuro, utilize o fork mantido pela comunidade: **[@yao-pkg/pkg](https://github.com/yao-pkg/pkg)**.
+
 ---
 
 ## 🧪 Testes

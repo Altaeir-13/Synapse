@@ -33,23 +33,8 @@
     "@types/open": "^6.1.0",
     "@types/tar": "^6.1.13",
     "@types/uuid": "^10.0.0",
-    "pkg": "^5.8.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },
-  "type": "module",
-  "pkg": {
-    "scripts": [
-      "src/**/*.ts"
-    ],
-    "assets": [
-      "src/dashboard/**/*"
-    ],
-    "targets": [
-      "node20-linux-x64",
-      "node20-macos-x64",
-      "node20-macos-arm64",
-      "node20-win-x64"
-    ]
-  }
+  "type": "module"
 }
